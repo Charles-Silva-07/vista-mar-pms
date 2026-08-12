@@ -39,10 +39,15 @@ function Workspace() {
     setMenuOpen(false);
   };
 
+  const openNewReservation = () => {
+    setNewRes({ open: true });
+    setMenuOpen(false);
+  };
+
   return (
     <div className="flex min-h-screen w-full bg-background">
       <div className="sticky top-0 hidden h-screen shrink-0 lg:block">
-        <AppSidebar active={screen} onNavigate={go} />
+        <AppSidebar active={screen} onNavigate={go} onNewReservation={openNewReservation} />
       </div>
 
       {menuOpen && (
@@ -53,7 +58,12 @@ function Workspace() {
             aria-label="Fechar menu"
           />
           <div className="absolute inset-y-0 left-0">
-            <AppSidebar active={screen} onNavigate={go} onClose={() => setMenuOpen(false)} />
+            <AppSidebar
+              active={screen}
+              onNavigate={go}
+              onClose={() => setMenuOpen(false)}
+              onNewReservation={openNewReservation}
+            />
           </div>
         </div>
       )}

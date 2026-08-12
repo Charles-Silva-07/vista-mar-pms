@@ -1,4 +1,4 @@
-import { LayoutDashboard, CalendarRange, Users, Wallet, Waves, X } from "lucide-react";
+import { LayoutDashboard, CalendarRange, Users, Wallet, Waves, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ScreenKey = "dashboard" | "mapa" | "hospedes" | "financeiro";
@@ -14,10 +14,12 @@ export function AppSidebar({
   active,
   onNavigate,
   onClose,
+  onNewReservation,
 }: {
   active: ScreenKey;
   onNavigate: (k: ScreenKey) => void;
   onClose?: () => void;
+  onNewReservation?: () => void;
 }) {
   return (
     <aside className="flex h-full w-72 flex-col bg-sidebar text-sidebar-foreground">
@@ -38,7 +40,17 @@ export function AppSidebar({
         )}
       </div>
 
-      <nav className="flex-1 space-y-1 p-3">
+      <div className="p-3">
+        <button
+          onClick={onNewReservation}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+        >
+          <Plus className="size-4 shrink-0" />
+          <span className="truncate">Nova Reserva</span>
+        </button>
+      </div>
+
+      <nav className="flex-1 space-y-1 px-3 pb-3">
         {items.map((item) => (
           <button
             key={item.key}
