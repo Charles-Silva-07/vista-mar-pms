@@ -3,7 +3,6 @@ import {
   CalendarRange,
   Users,
   Wallet,
-  Waves,
   X,
   Plus,
   ShoppingBag,
@@ -12,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 export type ScreenKey = "dashboard" | "mapa" | "hospedes" | "produtos" | "financeiro";
 
-const items: { key: ScreenKey; label: string; icon: typeof Waves }[] = [
+const items: { key: ScreenKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "mapa", label: "Mapa de Reservas", icon: CalendarRange },
   { key: "hospedes", label: "Hóspedes (FNRH)", icon: Users },
@@ -35,11 +34,13 @@ export function AppSidebar({
     <aside className="flex h-full w-72 flex-col bg-sidebar text-sidebar-foreground">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-sidebar-border px-5 py-5">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground">
-            <Waves className="size-5" />
-          </div>
+          <img
+            src={`${import.meta.env.BASE_URL}logo-alameda.png`}
+            alt="Alameda Pousada"
+            className="size-11 shrink-0 object-contain"
+          />
           <div className="min-w-0">
-            <p className="truncate text-base font-semibold">Pousada Edmilton</p>
+            <p className="truncate text-base font-semibold">Alameda Pousada</p>
             <p className="truncate text-xs text-sidebar-foreground/60">PMS &amp; Financeiro</p>
           </div>
         </div>
