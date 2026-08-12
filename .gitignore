@@ -20,6 +20,9 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# graphify (local knowledge-graph analysis output, machine-specific)
+graphify-out/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

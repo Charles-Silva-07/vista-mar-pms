@@ -6,8 +6,10 @@ import {
   X,
   Plus,
   ShoppingBag,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { StaffUser } from "@/lib/auth";
 
 export type ScreenKey = "dashboard" | "mapa" | "hospedes" | "produtos" | "financeiro";
 
@@ -24,11 +26,15 @@ export function AppSidebar({
   onNavigate,
   onClose,
   onNewReservation,
+  user,
+  onLogout,
 }: {
   active: ScreenKey;
   onNavigate: (k: ScreenKey) => void;
   onClose?: () => void;
   onNewReservation?: () => void;
+  user: StaffUser;
+  onLogout: () => void;
 }) {
   return (
     <aside className="flex h-full w-72 flex-col bg-sidebar text-sidebar-foreground">
@@ -80,11 +86,23 @@ export function AppSidebar({
       </nav>
 
       <div className="border-t border-sidebar-border p-4">
-        <div className="rounded-xl bg-sidebar-accent p-3">
-          <p className="text-sm font-semibold text-sidebar-accent-foreground">
-            Recepção — Ana Paula
-          </p>
-          <p className="mt-0.5 text-xs text-sidebar-foreground/70">Turno 07:00 - 15:00</p>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl bg-sidebar-accent p-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-sidebar-accent-foreground">
+              {user.role} — {user.name}
+            </p>
+            <p className="mt-0.5 truncate text-xs text-sidebar-foreground/70">
+              Turno {user.shift}
+            </p>
+          </div>
+          <button
+            onClick={onLogout}
+            className="grid size-8 shrink-0 place-items-center rounded-lg text-sidebar-foreground/70 transition-colors hover:bg-sidebar-border hover:text-sidebar-accent-foreground"
+            aria-label="Sair"
+            title="Sair"
+          >
+            <LogOut className="size-4" />
+          </button>
         </div>
       </div>
     </aside>

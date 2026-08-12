@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Menu } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import { AppSidebar, type ScreenKey } from "@/components/pms/AppSidebar";
+import { LoginScreen } from "@/components/pms/LoginScreen";
 import { DashboardScreen } from "@/components/pms/DashboardScreen";
 import { MapScreen } from "@/components/pms/MapScreen";
 import { GuestsScreen } from "@/components/pms/GuestsScreen";
@@ -10,6 +11,7 @@ import { FinanceScreen } from "@/components/pms/FinanceScreen";
 import { AccountModal } from "@/components/pms/AccountModal";
 import { ReservationModal } from "@/components/pms/ReservationModal";
 import { PmsProvider, type Reservation } from "@/lib/pms-store";
+import { clearSavedUser, loadSavedUser, saveUser, type StaffUser } from "@/lib/auth";
 
 const titles: Record<ScreenKey, { title: string; subtitle: string }> = {
   dashboard: { title: "Visão Geral", subtitle: "Resumo operacional da pousada hoje" },
@@ -20,15 +22,37 @@ const titles: Record<ScreenKey, { title: string; subtitle: string }> = {
 };
 
 export function App() {
+  const [user, setUser] = useState<StaffUser | null>(() => loadSavedUser());
+
+  if (!user) {
+    return (
+      <>
+        <LoginScreen
+          onLogin={(u) => {
+            saveUser(u);
+            setUser(u);
+          }}
+        />
+        <Toaster position="top-right" richColors />
+      </>
+    );
+  }
+
   return (
     <PmsProvider>
-      <Workspace />
+      <Workspace
+        user={user}
+        onLogout={() => {
+          clearSavedUser();
+          setUser(null);
+        }}
+      />
       <Toaster position="top-right" richColors />
     </PmsProvider>
   );
 }
 
-function Workspace() {
+function Workspace({ user, onLogout }: { user: StaffUser; onLogout: () => void }) {
   const [screen, setScreen] = useState<ScreenKey>("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
   const [account, setAccount] = useState<Reservation | null>(null);
@@ -49,7 +73,13 @@ function Workspace() {
   return (
     <div className="flex min-h-screen w-full bg-background">
       <div className="sticky top-0 hidden h-screen shrink-0 lg:block">
-        <AppSidebar active={screen} onNavigate={go} onNewReservation={openNewReservation} />
+        <AppSidebar
+          active={screen}
+          onNavigate={go}
+          onNewReservation={openNewReservation}
+          user={user}
+          onLogout={onLogout}
+        />
       </div>
 
       {menuOpen && (
@@ -65,6 +95,8 @@ function Workspace() {
               onNavigate={go}
               onClose={() => setMenuOpen(false)}
               onNewReservation={openNewReservation}
+              user={user}
+              onLogout={onLogout}
             />
           </div>
         </div>
