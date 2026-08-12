@@ -54,14 +54,7 @@ export function GuestsScreen() {
   const set = (k: keyof typeof emptyForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const submit = () => {
-    const required: (keyof typeof emptyForm)[] = [
-      "name",
-      "document",
-      "phone",
-      "email",
-      "lastCity",
-      "nextCity",
-    ];
+    const required: (keyof typeof emptyForm)[] = ["name", "document", "phone", "email"];
     if (required.some((k) => !form[k].trim())) {
       toast.error("Preencha todos os campos obrigatórios da FNRH.");
       return;
