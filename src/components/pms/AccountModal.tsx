@@ -10,11 +10,19 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { brl, day, usePms, type Reservation } from "@/lib/pms-store";
 import { cn } from "@/lib/utils";
 
 const methods = ["Pix", "Cartão de Crédito", "Dinheiro"];
+const CUSTOM_ITEM = "avulso";
 
 export function AccountModal({
   reservation,
@@ -23,11 +31,13 @@ export function AccountModal({
   reservation: Reservation | null;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { rooms, consumptions, addConsumption, addTransaction, updateReservationStatus } = usePms();
+  const { rooms, products, consumptions, addConsumption, addTransaction, updateReservationStatus } =
+    usePms();
   const [method, setMethod] = useState("Pix");
-  const [name, setName] = useState("");
+  const [productId, setProductId] = useState<string>(products[0]?.id ?? CUSTOM_ITEM);
+  const [customName, setCustomName] = useState("");
+  const [customPrice, setCustomPrice] = useState("");
   const [qty, setQty] = useState("1");
-  const [price, setPrice] = useState("");
 
   if (!reservation) return null;
   const room = rooms.find((r) => r.id === reservation.roomId);
@@ -36,21 +46,25 @@ export function AccountModal({
   const extras = items.reduce((sum, i) => sum + i.qty * i.unitPrice, 0);
   const total = lodging + extras;
 
+  const selectedProduct = products.find((p) => p.id === productId);
+  const isCustom = productId === CUSTOM_ITEM || !selectedProduct;
+
   const addItem = () => {
-    const unitPrice = Number(price.replace(",", "."));
-    if (!name.trim() || !unitPrice) {
+    const name = isCustom ? customName.trim() : selectedProduct!.name;
+    const unitPrice = isCustom ? Number(customPrice.replace(",", ".")) : selectedProduct!.price;
+    if (!name || !unitPrice) {
       toast.error("Informe o produto e o valor unitário.");
       return;
     }
     addConsumption({
       reservationId: reservation.id,
-      name: name.trim(),
+      name,
       qty: Number(qty) || 1,
       unitPrice,
     });
-    setName("");
+    setCustomName("");
+    setCustomPrice("");
     setQty("1");
-    setPrice("");
     toast.success("Consumo lançado no extrato.");
   };
 
@@ -112,28 +126,48 @@ export function AccountModal({
 
           <div className="rounded-xl border border-dashed border-border p-4">
             <p className="mb-3 text-sm font-semibold">+ Adicionar item ao consumo</p>
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_5rem_7rem]">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_5rem]">
               <div className="space-y-1">
                 <Label className="text-xs">Produto</Label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Água mineral"
-                />
+                <Select value={productId} onValueChange={setProductId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} — {brl(p.price)}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={CUSTOM_ITEM}>Outro (avulso)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Qtd.</Label>
                 <Input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="numeric" />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Valor un.</Label>
-                <Input
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="7,00"
-                />
-              </div>
             </div>
+            {isCustom && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem]">
+                <div className="space-y-1">
+                  <Label className="text-xs">Nome do item</Label>
+                  <Input
+                    value={customName}
+                    onChange={(e) => setCustomName(e.target.value)}
+                    placeholder="Ex.: Passeio de barco"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Valor un.</Label>
+                  <Input
+                    value={customPrice}
+                    onChange={(e) => setCustomPrice(e.target.value)}
+                    placeholder="7,00"
+                  />
+                </div>
+              </div>
+            )}
             <Button onClick={addItem} variant="secondary" className="mt-3 w-full sm:w-auto">
               <Plus /> Adicionar item
             </Button>

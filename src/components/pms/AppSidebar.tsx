@@ -1,12 +1,22 @@
-import { LayoutDashboard, CalendarRange, Users, Wallet, Waves, X, Plus } from "lucide-react";
+import {
+  LayoutDashboard,
+  CalendarRange,
+  Users,
+  Wallet,
+  Waves,
+  X,
+  Plus,
+  ShoppingBag,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ScreenKey = "dashboard" | "mapa" | "hospedes" | "financeiro";
+export type ScreenKey = "dashboard" | "mapa" | "hospedes" | "produtos" | "financeiro";
 
 const items: { key: ScreenKey; label: string; icon: typeof Waves }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "mapa", label: "Mapa de Reservas", icon: CalendarRange },
   { key: "hospedes", label: "Hóspedes (FNRH)", icon: Users },
+  { key: "produtos", label: "Produtos & Preços", icon: ShoppingBag },
   { key: "financeiro", label: "Financeiro", icon: Wallet },
 ];
 

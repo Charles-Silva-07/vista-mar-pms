@@ -39,6 +39,17 @@ export type ConsumptionItem = {
   unitPrice: number;
 };
 
+export type ProductCategory = "Bebidas" | "Alimentos" | "Serviços";
+
+export type Product = {
+  id: string;
+  name: string;
+  category: ProductCategory;
+  price: number;
+};
+
+export const productCategories: ProductCategory[] = ["Bebidas", "Alimentos", "Serviços"];
+
 export type Transaction = {
   id: string;
   date: string;
@@ -234,6 +245,20 @@ const seedReservations: Reservation[] = [
   },
 ];
 
+const seedProducts: Product[] = [
+  { id: "p1", name: "Água mineral 500ml", category: "Bebidas", price: 7 },
+  { id: "p2", name: "Água de coco", category: "Bebidas", price: 10 },
+  { id: "p3", name: "Refrigerante lata", category: "Bebidas", price: 9 },
+  { id: "p4", name: "Cerveja artesanal", category: "Bebidas", price: 18 },
+  { id: "p5", name: "Salgado assado", category: "Alimentos", price: 12 },
+  { id: "p6", name: "Porção de batata frita", category: "Alimentos", price: 28 },
+  { id: "p7", name: "Sanduíche natural", category: "Alimentos", price: 22 },
+  { id: "p8", name: "Café da manhã extra", category: "Alimentos", price: 32 },
+  { id: "p9", name: "Taxa de lavanderia", category: "Serviços", price: 45 },
+  { id: "p10", name: "Toalha extra", category: "Serviços", price: 15 },
+  { id: "p11", name: "Late check-out (por hora)", category: "Serviços", price: 40 },
+];
+
 const seedConsumptions: ConsumptionItem[] = [
   { id: "c1", reservationId: "r1", name: "Água mineral 500ml", qty: 2, unitPrice: 7 },
   { id: "c2", reservationId: "r1", name: "Refrigerante lata", qty: 1, unitPrice: 9 },
@@ -324,6 +349,7 @@ function usePmsState() {
   const [reservations, setReservations] = useState<Reservation[]>(seedReservations);
   const [consumptions, setConsumptions] = useState<ConsumptionItem[]>(seedConsumptions);
   const [transactions, setTransactions] = useState<Transaction[]>(seedTransactions);
+  const [products, setProducts] = useState<Product[]>(seedProducts);
 
   return useMemo(
     () => ({
@@ -332,6 +358,7 @@ function usePmsState() {
       reservations,
       consumptions,
       transactions,
+      products,
       addGuest: (g: Omit<Guest, "id" | "stays">) =>
         setGuests((prev) => [{ ...g, id: uid(), stays: 0 }, ...prev]),
       addReservation: (r: Omit<Reservation, "id">) =>
@@ -342,8 +369,11 @@ function usePmsState() {
         setConsumptions((prev) => [...prev, { ...item, id: uid() }]),
       addTransaction: (t: Omit<Transaction, "id">) =>
         setTransactions((prev) => [...prev, { ...t, id: uid() }]),
+      addProduct: (p: Omit<Product, "id">) =>
+        setProducts((prev) => [{ ...p, id: uid() }, ...prev]),
+      removeProduct: (id: string) => setProducts((prev) => prev.filter((p) => p.id !== id)),
     }),
-    [guests, reservations, consumptions, transactions],
+    [guests, reservations, consumptions, transactions, products],
   );
 }
 

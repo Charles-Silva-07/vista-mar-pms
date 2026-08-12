@@ -5,6 +5,7 @@ import { AppSidebar, type ScreenKey } from "@/components/pms/AppSidebar";
 import { DashboardScreen } from "@/components/pms/DashboardScreen";
 import { MapScreen } from "@/components/pms/MapScreen";
 import { GuestsScreen } from "@/components/pms/GuestsScreen";
+import { ProductsScreen } from "@/components/pms/ProductsScreen";
 import { FinanceScreen } from "@/components/pms/FinanceScreen";
 import { AccountModal } from "@/components/pms/AccountModal";
 import { ReservationModal } from "@/components/pms/ReservationModal";
@@ -14,6 +15,7 @@ const titles: Record<ScreenKey, { title: string; subtitle: string }> = {
   dashboard: { title: "Visão Geral", subtitle: "Resumo operacional da pousada hoje" },
   mapa: { title: "Mapa de Reservas", subtitle: "Ocupação por quarto ao longo do mês" },
   hospedes: { title: "Hóspedes (FNRH)", subtitle: "Cadastro legal e histórico de estadias" },
+  produtos: { title: "Produtos & Preços", subtitle: "Catálogo de itens vendidos na pousada" },
   financeiro: { title: "Financeiro", subtitle: "Fluxo de caixa, despesas e resultado" },
 };
 
@@ -101,6 +103,7 @@ function Workspace() {
             />
           )}
           {screen === "hospedes" && <GuestsScreen />}
+          {screen === "produtos" && <ProductsScreen />}
           {screen === "financeiro" && <FinanceScreen />}
         </main>
       </div>
