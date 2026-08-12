@@ -1,6 +1,14 @@
+import { useState } from "react";
 import { BedDouble, LogIn, LogOut, Percent, TrendingUp, Plus, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { brl, day, usePms, type Reservation } from "@/lib/pms-store";
 
 function MetricCard({
@@ -49,6 +57,7 @@ export function DashboardScreen({
 }) {
   const { rooms, reservations, transactions, updateReservationStatus } = usePms();
   const todayIso = day(0);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const inHouse = reservations.filter((r) => r.status === "andamento");
   const arrivals = reservations.filter((r) => r.start === todayIso && r.status === "confirmada");
@@ -106,14 +115,49 @@ export function DashboardScreen({
           <Button
             variant="outline"
             onClick={() => {
-              const first = inHouse[0];
-              if (first) onOpenAccount(first);
+              if (inHouse.length === 1 && inHouse[0]) onOpenAccount(inHouse[0]);
+              else setPickerOpen(true);
             }}
           >
             <Receipt /> Lançar Consumo
           </Button>
         </div>
       </div>
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Lançar consumo — qual quarto?</DialogTitle>
+            <DialogDescription>Escolha o hóspede que está consumindo agora.</DialogDescription>
+          </DialogHeader>
+          <ul className="-mx-1 max-h-80 space-y-1 overflow-y-auto">
+            {inHouse.length === 0 && (
+              <li className="px-1 py-6 text-center text-sm text-muted-foreground">
+                Nenhuma hospedagem em andamento no momento.
+              </li>
+            )}
+            {inHouse.map((r) => {
+              const room = roomOf(r.roomId);
+              return (
+                <li key={r.id}>
+                  <button
+                    onClick={() => {
+                      setPickerOpen(false);
+                      onOpenAccount(r);
+                    }}
+                    className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <span className="min-w-0 truncate font-medium">{r.guestName}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      Quarto {room?.number}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-2xl border border-border bg-card shadow-sm">
