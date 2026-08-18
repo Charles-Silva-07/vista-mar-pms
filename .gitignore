@@ -26,6 +26,10 @@ graphify-out/
 # Documentos internos/de cliente - nao vao pro repositorio publico
 *.pdf
 
+# Imagens de origem soltas na raiz (versao ja otimizada vai em public/)
+/homem.png
+/mulher.png
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

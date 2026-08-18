@@ -9,6 +9,11 @@ function hashString(s: string): number {
   return hash;
 }
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
+}
+
 export function GeneratedAvatar({ name, size = 36 }: { name: string; size?: number }) {
   const hash = hashString(name || "?");
   const hue1 = hash % 360;
@@ -36,6 +41,21 @@ export function GeneratedAvatar({ name, size = 36 }: { name: string; size?: numb
         <circle cx={cx1} cy={cy1} r={r1} fill={`hsl(${hue2} 70% 60%)`} opacity="0.85" />
         <circle cx={cx2} cy={cy2} r={r2} fill={`hsl(${hue3} 75% 65%)`} opacity="0.75" />
       </g>
+      {/* Iniciais por cima do fundo gerado - o jeito que ficou bom antes */}
+      <text
+        x="40"
+        y="40"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize="30"
+        fontWeight="700"
+        fill="white"
+        stroke="rgba(0,0,0,0.25)"
+        strokeWidth="1"
+        style={{ fontFamily: "system-ui, sans-serif" }}
+      >
+        {initials(name)}
+      </text>
     </svg>
   );
 }

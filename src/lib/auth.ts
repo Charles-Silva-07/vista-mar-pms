@@ -44,13 +44,19 @@ export type StaffUser = {
 
 export type DemoAccount = StaffUser & { password: string };
 
+// Fotos de demonstração (imagens genéricas geradas por IA, não são de
+// pessoas reais) - repetidas entre colaboradores de exemplo, só pra mostrar
+// o visual com foto de verdade em vez do avatar gerado.
+const DEMO_PHOTO_MULHER = `${import.meta.env.BASE_URL}mulher.jpg`;
+const DEMO_PHOTO_HOMEM = `${import.meta.env.BASE_URL}homem.jpg`;
+
 export const SEED_ACCOUNTS: DemoAccount[] = [
   {
     id: "u1",
     name: "Ana Paula",
     document: "482.119.330-72",
     phone: "(85) 99812-4477",
-    photoUrl: "",
+    photoUrl: DEMO_PHOTO_MULHER,
     role: "Recepção",
     shift: "07:00 - 15:00",
     shiftPeriod: "manha",
@@ -70,7 +76,7 @@ export const SEED_ACCOUNTS: DemoAccount[] = [
     name: "Carlos Mendes",
     document: "701.554.882-10",
     phone: "(85) 98123-0091",
-    photoUrl: "",
+    photoUrl: DEMO_PHOTO_HOMEM,
     role: "Gerência",
     shift: "08:00 - 18:00",
     shiftPeriod: "integral",
@@ -90,7 +96,7 @@ export const SEED_ACCOUNTS: DemoAccount[] = [
     name: "Roberto Silva",
     document: "225.771.940-08",
     phone: "(85) 99765-3312",
-    photoUrl: "",
+    photoUrl: DEMO_PHOTO_HOMEM,
     role: "Cozinha / Copa",
     shift: "06:00 - 14:00",
     shiftPeriod: "manha",
@@ -110,7 +116,7 @@ export const SEED_ACCOUNTS: DemoAccount[] = [
     name: "Marcos Souza",
     document: "339.128.660-55",
     phone: "(85) 99640-2288",
-    photoUrl: "",
+    photoUrl: DEMO_PHOTO_HOMEM,
     role: "Serviços Gerais / Ajudante",
     shift: "13:00 - 21:00",
     shiftPeriod: "tarde",
