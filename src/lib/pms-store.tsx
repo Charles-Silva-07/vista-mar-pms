@@ -2,6 +2,10 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from "re
 
 export type ReservationStatus = "confirmada" | "andamento" | "finalizada" | "cancelada";
 
+// Situação financeira da reserva: se ainda não pagou nada, já deu sinal/entrada,
+// ou já quitou o valor integral.
+export type PaymentStatus = "nao_pago" | "sinal" | "pago";
+
 export type Room = { id: string; number: string; category: string; rate: number };
 
 export type Guest = {
@@ -26,6 +30,7 @@ export type Reservation = {
   start: string; // yyyy-mm-dd
   end: string; // yyyy-mm-dd (checkout day)
   status: ReservationStatus;
+  paymentStatus: PaymentStatus;
   eta: string;
   nights: number;
   rate: number;
@@ -49,6 +54,26 @@ export type Product = {
 };
 
 export const productCategories: ProductCategory[] = ["Bebidas", "Alimentos", "Serviços"];
+
+export type SupplyItem = {
+  id: string;
+  name: string;
+  unit: string; // un, L, kg, rolo, pacote...
+  quantity: number;
+  minQuantity: number; // dispara o alerta de estoque baixo
+};
+
+export type SupplyMovementType = "entrada" | "saida";
+
+export type SupplyMovement = {
+  id: string;
+  supplyId: string;
+  type: SupplyMovementType;
+  quantity: number;
+  date: string;
+  unitCost?: number; // só faz sentido numa entrada (compra)
+  note?: string;
+};
 
 export type Transaction = {
   id: string;
@@ -158,6 +183,7 @@ const seedReservations: Reservation[] = [
     start: day(-2),
     end: day(2),
     status: "andamento",
+    paymentStatus: "pago",
     eta: "14:00",
     nights: 4,
     rate: 620,
@@ -170,6 +196,7 @@ const seedReservations: Reservation[] = [
     start: day(-1),
     end: day(1),
     status: "andamento",
+    paymentStatus: "sinal",
     eta: "15:30",
     nights: 2,
     rate: 380,
@@ -182,6 +209,7 @@ const seedReservations: Reservation[] = [
     start: day(0),
     end: day(5),
     status: "confirmada",
+    paymentStatus: "sinal",
     eta: "13:00",
     nights: 5,
     rate: 850,
@@ -194,6 +222,7 @@ const seedReservations: Reservation[] = [
     start: day(0),
     end: day(3),
     status: "confirmada",
+    paymentStatus: "nao_pago",
     eta: "18:40",
     nights: 3,
     rate: 520,
@@ -206,6 +235,7 @@ const seedReservations: Reservation[] = [
     start: day(-5),
     end: day(-1),
     status: "finalizada",
+    paymentStatus: "pago",
     eta: "12:00",
     nights: 4,
     rate: 780,
@@ -217,6 +247,7 @@ const seedReservations: Reservation[] = [
     start: day(3),
     end: day(6),
     status: "confirmada",
+    paymentStatus: "pago",
     eta: "16:00",
     nights: 3,
     rate: 380,
@@ -228,6 +259,7 @@ const seedReservations: Reservation[] = [
     start: day(1),
     end: day(4),
     status: "cancelada",
+    paymentStatus: "nao_pago",
     eta: "20:00",
     nights: 3,
     rate: 260,
@@ -239,9 +271,48 @@ const seedReservations: Reservation[] = [
     start: day(-3),
     end: day(0),
     status: "andamento",
+    paymentStatus: "pago",
     eta: "11:00",
     nights: 3,
     rate: 340,
+  },
+  // Reservas de alta temporada (Romaria de Juazeiro do Norte, setembro) —
+  // demonstram o filtro de mês e os 3 status de pagamento de uma vez.
+  {
+    id: "r9",
+    roomId: "101",
+    guestName: "Grupo Romaria - Francisco Alves",
+    start: day(14),
+    end: day(19),
+    status: "confirmada",
+    paymentStatus: "sinal",
+    eta: "10:00",
+    nights: 5,
+    rate: 620,
+  },
+  {
+    id: "r10",
+    roomId: "102",
+    guestName: "Grupo Romaria - Maria das Graças",
+    start: day(16),
+    end: day(21),
+    status: "confirmada",
+    paymentStatus: "pago",
+    eta: "09:30",
+    nights: 5,
+    rate: 380,
+  },
+  {
+    id: "r11",
+    roomId: "203",
+    guestName: "Antônio Ferreira",
+    start: day(20),
+    end: day(23),
+    status: "confirmada",
+    paymentStatus: "nao_pago",
+    eta: "17:00",
+    nights: 3,
+    rate: 520,
   },
 ];
 
@@ -265,6 +336,71 @@ const seedConsumptions: ConsumptionItem[] = [
   { id: "c3", reservationId: "r1", name: "Taxa de lavanderia", qty: 1, unitPrice: 45 },
   { id: "c4", reservationId: "r2", name: "Café da manhã extra", qty: 2, unitPrice: 32 },
   { id: "c5", reservationId: "r8", name: "Cerveja artesanal", qty: 3, unitPrice: 18 },
+];
+
+const seedSupplies: SupplyItem[] = [
+  { id: "s1", name: "Papel higiênico", unit: "rolo", quantity: 18, minQuantity: 24 },
+  { id: "s2", name: "Sabonete", unit: "un", quantity: 40, minQuantity: 30 },
+  { id: "s3", name: "Detergente", unit: "L", quantity: 3, minQuantity: 5 },
+  { id: "s4", name: "Café em pó", unit: "kg", quantity: 6, minQuantity: 4 },
+  { id: "s5", name: "Açúcar", unit: "kg", quantity: 8, minQuantity: 5 },
+  { id: "s6", name: "Álcool em gel", unit: "L", quantity: 2, minQuantity: 6 },
+  { id: "s7", name: "Toalha de banho", unit: "un", quantity: 35, minQuantity: 20 },
+  { id: "s8", name: "Água mineral (galão)", unit: "un", quantity: 4, minQuantity: 6 },
+];
+
+const seedSupplyMovements: SupplyMovement[] = [
+  {
+    id: "sm1",
+    supplyId: "s1",
+    type: "entrada",
+    quantity: 24,
+    date: day(-10),
+    unitCost: 3.5,
+    note: "Compra mensal",
+  },
+  {
+    id: "sm2",
+    supplyId: "s1",
+    type: "saida",
+    quantity: 6,
+    date: day(-2),
+    note: "Reposição dos quartos",
+  },
+  {
+    id: "sm3",
+    supplyId: "s3",
+    type: "entrada",
+    quantity: 10,
+    date: day(-15),
+    unitCost: 12,
+    note: "Compra mensal",
+  },
+  {
+    id: "sm4",
+    supplyId: "s3",
+    type: "saida",
+    quantity: 7,
+    date: day(-3),
+    note: "Limpeza geral",
+  },
+  {
+    id: "sm5",
+    supplyId: "s6",
+    type: "entrada",
+    quantity: 8,
+    date: day(-20),
+    unitCost: 9.9,
+    note: "Compra mensal",
+  },
+  {
+    id: "sm6",
+    supplyId: "s6",
+    type: "saida",
+    quantity: 6,
+    date: day(-1),
+    note: "Recepção e quartos",
+  },
 ];
 
 const seedTransactions: Transaction[] = [
@@ -350,6 +486,9 @@ function usePmsState() {
   const [consumptions, setConsumptions] = useState<ConsumptionItem[]>(seedConsumptions);
   const [transactions, setTransactions] = useState<Transaction[]>(seedTransactions);
   const [products, setProducts] = useState<Product[]>(seedProducts);
+  const [supplies, setSupplies] = useState<SupplyItem[]>(seedSupplies);
+  const [supplyMovements, setSupplyMovements] =
+    useState<SupplyMovement[]>(seedSupplyMovements);
 
   return useMemo(
     () => ({
@@ -359,12 +498,16 @@ function usePmsState() {
       consumptions,
       transactions,
       products,
+      supplies,
+      supplyMovements,
       addGuest: (g: Omit<Guest, "id" | "stays">) =>
         setGuests((prev) => [{ ...g, id: uid(), stays: 0 }, ...prev]),
       addReservation: (r: Omit<Reservation, "id">) =>
         setReservations((prev) => [...prev, { ...r, id: uid() }]),
       updateReservationStatus: (id: string, status: ReservationStatus) =>
         setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r))),
+      updateReservationPayment: (id: string, paymentStatus: PaymentStatus) =>
+        setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, paymentStatus } : r))),
       addConsumption: (item: Omit<ConsumptionItem, "id">) =>
         setConsumptions((prev) => [...prev, { ...item, id: uid() }]),
       addTransaction: (t: Omit<Transaction, "id">) =>
@@ -372,8 +515,39 @@ function usePmsState() {
       addProduct: (p: Omit<Product, "id">) =>
         setProducts((prev) => [{ ...p, id: uid() }, ...prev]),
       removeProduct: (id: string) => setProducts((prev) => prev.filter((p) => p.id !== id)),
+      addSupply: (s: Omit<SupplyItem, "id">) =>
+        setSupplies((prev) => [{ ...s, id: uid() }, ...prev]),
+      // Registra a movimentação e já ajusta a quantidade do insumo (sem deixar
+      // ficar negativa). Uma entrada com custo também lança a despesa sozinha
+      // no Financeiro - é o "alimenta automaticamente o financeiro" pedido.
+      addSupplyMovement: (m: Omit<SupplyMovement, "id">) => {
+        const id = uid();
+        setSupplyMovements((prev) => [{ ...m, id }, ...prev]);
+        setSupplies((prev) =>
+          prev.map((s) => {
+            if (s.id !== m.supplyId) return s;
+            const delta = m.type === "entrada" ? m.quantity : -m.quantity;
+            return { ...s, quantity: Math.max(0, s.quantity + delta) };
+          }),
+        );
+        if (m.type === "entrada" && m.unitCost) {
+          const supply = supplies.find((s) => s.id === m.supplyId);
+          setTransactions((prev) => [
+            ...prev,
+            {
+              id: uid(),
+              date: m.date,
+              description: `Compra de insumo — ${supply?.name ?? "item"} (${m.quantity} ${supply?.unit ?? ""})`,
+              category: "Insumos/Frigobar",
+              amount: m.quantity * m.unitCost!,
+              type: "saida",
+              status: "Pago",
+            },
+          ]);
+        }
+      },
     }),
-    [guests, reservations, consumptions, transactions, products],
+    [guests, reservations, consumptions, transactions, products, supplies, supplyMovements],
   );
 }
 
@@ -404,3 +578,49 @@ export const statusLabels: Record<ReservationStatus, string> = {
   finalizada: "Finalizada",
   cancelada: "Cancelada / No-show",
 };
+
+export const paymentStatusLabels: Record<PaymentStatus, string> = {
+  nao_pago: "Não pago",
+  sinal: "Sinal pago",
+  pago: "Pago integral",
+};
+
+// Sigla curta pra mostrar em cards/listas sem ocupar espaço.
+export const paymentStatusTags: Record<PaymentStatus, string> = {
+  nao_pago: "Não pago",
+  sinal: "Sinal",
+  pago: "PG",
+};
+
+export const paymentStatusStyles: Record<PaymentStatus, string> = {
+  nao_pago: "bg-muted text-muted-foreground",
+  sinal: "bg-warning/20 text-warning",
+  pago: "bg-success/15 text-success",
+};
+
+// Esquema de 3 cores do Mapa de Reservas, pedido pelo cliente:
+// branco (disponível - célula sem reserva), laranja (reservado, pagamento
+// pendente) e vermelho (ocupado - check-in feito ou pago integral).
+export type OccupancyColor = "reservado" | "ocupado" | "encerrada";
+
+export function occupancyColor(res: Reservation): OccupancyColor {
+  if (res.status === "finalizada") return "encerrada";
+  const isOcupado = res.status === "andamento" || res.paymentStatus === "pago";
+  return isOcupado ? "ocupado" : "reservado";
+}
+
+export const occupancyStyles: Record<OccupancyColor, string> = {
+  reservado: "bg-warning text-warning-foreground",
+  ocupado: "bg-destructive text-destructive-foreground",
+  encerrada: "bg-muted-foreground/40 text-background",
+};
+
+export const occupancyLabels: Record<OccupancyColor, string> = {
+  reservado: "Reservado (pagamento pendente)",
+  ocupado: "Ocupado",
+  encerrada: "Encerrada",
+};
+
+export function isLowStock(s: SupplyItem): boolean {
+  return s.quantity <= s.minQuantity;
+}

@@ -7,6 +7,7 @@ import { DashboardScreen } from "@/components/pms/DashboardScreen";
 import { MapScreen } from "@/components/pms/MapScreen";
 import { GuestsScreen } from "@/components/pms/GuestsScreen";
 import { ProductsScreen } from "@/components/pms/ProductsScreen";
+import { SupplyScreen } from "@/components/pms/SupplyScreen";
 import { FinanceScreen } from "@/components/pms/FinanceScreen";
 import { AccountModal } from "@/components/pms/AccountModal";
 import { ReservationModal } from "@/components/pms/ReservationModal";
@@ -18,6 +19,7 @@ const titles: Record<ScreenKey, { title: string; subtitle: string }> = {
   mapa: { title: "Mapa de Reservas", subtitle: "Ocupação por quarto ao longo do mês" },
   hospedes: { title: "Hóspedes (FNRH)", subtitle: "Cadastro legal e histórico de estadias" },
   produtos: { title: "Produtos & Preços", subtitle: "Catálogo de itens vendidos na pousada" },
+  estoque: { title: "Estoque de Insumos", subtitle: "Controle de compras, uso e estoque mínimo" },
   financeiro: { title: "Financeiro", subtitle: "Fluxo de caixa, despesas e resultado" },
 };
 
@@ -139,6 +141,7 @@ function Workspace({ user, onLogout }: { user: StaffUser; onLogout: () => void }
           )}
           {screen === "hospedes" && <GuestsScreen />}
           {screen === "produtos" && <ProductsScreen />}
+          {screen === "estoque" && <SupplyScreen />}
           {screen === "financeiro" && canAccessScreen(user, "financeiro") && <FinanceScreen />}
         </main>
       </div>

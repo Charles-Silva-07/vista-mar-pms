@@ -23,6 +23,9 @@ dist-ssr
 # graphify (local knowledge-graph analysis output, machine-specific)
 graphify-out/
 
+# Documentos internos/de cliente - nao vao pro repositorio publico
+*.pdf
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

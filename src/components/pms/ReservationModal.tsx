@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { day, usePms } from "@/lib/pms-store";
+import { day, paymentStatusLabels, usePms, type PaymentStatus } from "@/lib/pms-store";
 
 export function ReservationModal({
   open,
@@ -36,6 +36,7 @@ export function ReservationModal({
   const [start, setStart] = useState(defaultDate ?? day(0));
   const [nights, setNights] = useState("2");
   const [eta, setEta] = useState("14:00");
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("nao_pago");
 
   useEffect(() => {
     if (open) {
@@ -59,12 +60,14 @@ export function ReservationModal({
       start,
       end: endDate.toISOString().slice(0, 10),
       status: "confirmada",
+      paymentStatus,
       eta,
       nights: n,
       rate: room.rate,
     });
     toast.success(`Reserva criada para ${guestName} no quarto ${room.number}.`);
     setGuestName("");
+    setPaymentStatus("nao_pago");
     onOpenChange(false);
   };
 
@@ -116,6 +119,21 @@ export function ReservationModal({
           <div className="space-y-1.5">
             <Label>Horário previsto</Label>
             <Input type="time" value={eta} onChange={(e) => setEta(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Situação financeira</Label>
+            <Select value={paymentStatus} onValueChange={(v) => setPaymentStatus(v as PaymentStatus)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(["nao_pago", "sinal", "pago"] as const).map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {paymentStatusLabels[p]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <Button className="w-full" onClick={submit}>
             Salvar reserva

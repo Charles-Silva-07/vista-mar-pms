@@ -9,7 +9,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { brl, day, usePms, type Reservation } from "@/lib/pms-store";
+import {
+  brl,
+  day,
+  paymentStatusStyles,
+  paymentStatusTags,
+  usePms,
+  type Reservation,
+} from "@/lib/pms-store";
+import { cn } from "@/lib/utils";
 
 function MetricCard({
   label,
@@ -178,7 +186,17 @@ export function DashboardScreen({
                   className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{r.guestName}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-medium">{r.guestName}</p>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                          paymentStatusStyles[r.paymentStatus],
+                        )}
+                      >
+                        {paymentStatusTags[r.paymentStatus]}
+                      </span>
+                    </div>
                     <p className="truncate text-xs text-muted-foreground">
                       Quarto {room?.number} · {room?.category}
                     </p>
@@ -208,7 +226,17 @@ export function DashboardScreen({
                   className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{r.guestName}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-medium">{r.guestName}</p>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                          paymentStatusStyles[r.paymentStatus],
+                        )}
+                      >
+                        {paymentStatusTags[r.paymentStatus]}
+                      </span>
+                    </div>
                     <p className="truncate text-xs text-muted-foreground">
                       Quarto {room?.number} · saída{" "}
                       {r.end.split("-").reverse().slice(0, 2).join("/")}

@@ -31,8 +31,15 @@ export function AccountModal({
   reservation: Reservation | null;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { rooms, products, consumptions, addConsumption, addTransaction, updateReservationStatus } =
-    usePms();
+  const {
+    rooms,
+    products,
+    consumptions,
+    addConsumption,
+    addTransaction,
+    updateReservationStatus,
+    updateReservationPayment,
+  } = usePms();
   const [method, setMethod] = useState("Pix");
   const [productId, setProductId] = useState<string>(products[0]?.id ?? CUSTOM_ITEM);
   const [customName, setCustomName] = useState("");
@@ -78,6 +85,7 @@ export function AccountModal({
       status: "Pago",
     });
     updateReservationStatus(reservation.id, "finalizada");
+    updateReservationPayment(reservation.id, "pago");
     toast.success(`Check-out concluído. Recibo de ${brl(total)} emitido.`);
     onOpenChange(false);
   };
