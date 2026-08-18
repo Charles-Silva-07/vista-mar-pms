@@ -24,6 +24,7 @@ import {
   occupancyColor,
   occupancyLabels,
   occupancyStyles,
+  paymentChipStyle,
   paymentSituation,
   paymentSituationStyles,
   paymentTag,
@@ -202,7 +203,12 @@ export function MapScreen({
                       >
                         <span className="truncate">{res.guestName}</span>
                         {paymentSituation(res) !== "nao_pago" && (
-                          <span className="shrink-0 rounded bg-black/15 px-1 text-[10px] font-semibold">
+                          <span
+                            className={cn(
+                              "shrink-0 rounded px-1 text-[10px] font-semibold",
+                              paymentChipStyle(res),
+                            )}
+                          >
                             {paymentTag(res)}
                           </span>
                         )}

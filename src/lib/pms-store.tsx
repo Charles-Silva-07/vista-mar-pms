@@ -612,6 +612,17 @@ export const paymentSituationStyles: Record<PaymentSituation, string> = {
   pago: "bg-success/15 text-success",
 };
 
+// Estilo do "chip" pequeno dentro das barras do mapa e das listas do
+// Dashboard. Um quarto com check-in feito fica verde mesmo se ainda faltar
+// pagar (o hóspede já está hospedado) - então "Falta pagar" precisa saltar
+// aos olhos em cima de QUALQUER cor de barra (verde ou laranja), não pode
+// ficar discreto igual o "PG", senão passa despercebido por quem olha rápido.
+export function paymentChipStyle(res: Reservation): string {
+  return paymentSituation(res) === "pago"
+    ? "bg-black/15 text-current"
+    : "bg-white text-destructive shadow-sm";
+}
+
 // Esquema de cores do Mapa de Reservas: branco (disponível - célula sem
 // reserva), laranja (reservado, pagamento pendente), verde (ocupado -
 // check-in feito ou pago integral) e vermelho (cancelada - sinaliza problema).

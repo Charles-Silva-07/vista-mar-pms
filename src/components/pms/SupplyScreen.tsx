@@ -151,10 +151,20 @@ export function SupplyScreen() {
             estoque baixo — reabasteça em breve.
           </span>
           <div className="flex shrink-0 gap-2">
-            <Button size="sm" variant="outline" onClick={exportPdf}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-destructive/25 bg-destructive/5 text-destructive hover:bg-destructive/10"
+              onClick={exportPdf}
+            >
               <FileText className="size-4" /> Exportar PDF
             </Button>
-            <Button size="sm" variant="outline" onClick={exportExcel}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-success/25 bg-success/5 text-success hover:bg-success/10"
+              onClick={exportExcel}
+            >
               <FileSpreadsheet className="size-4" /> Exportar Excel
             </Button>
           </div>
