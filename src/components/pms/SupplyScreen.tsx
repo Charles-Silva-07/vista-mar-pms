@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { QuantityInput } from "@/components/pms/QuantityInput";
 import { day, isLowStock, usePms, type SupplyItem, type SupplyMovementType } from "@/lib/pms-store";
 import { cn } from "@/lib/utils";
 
@@ -293,29 +294,27 @@ export function SupplyScreen() {
                 placeholder="Detergente"
               />
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label>Unidade</Label>
-                <Input
-                  value={newForm.unit}
-                  onChange={(e) => setNewForm({ ...newForm, unit: e.target.value })}
-                  placeholder="L, kg, un..."
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label>Unidade</Label>
+              <Input
+                value={newForm.unit}
+                onChange={(e) => setNewForm({ ...newForm, unit: e.target.value })}
+                placeholder="L, kg, un..."
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Qtd. inicial</Label>
-                <Input
+                <QuantityInput
                   value={newForm.quantity}
-                  onChange={(e) => setNewForm({ ...newForm, quantity: e.target.value })}
-                  inputMode="decimal"
+                  onChange={(v) => setNewForm({ ...newForm, quantity: v })}
                 />
               </div>
               <div className="space-y-1.5">
                 <Label>Mínimo</Label>
-                <Input
+                <QuantityInput
                   value={newForm.minQuantity}
-                  onChange={(e) => setNewForm({ ...newForm, minQuantity: e.target.value })}
-                  inputMode="decimal"
+                  onChange={(v) => setNewForm({ ...newForm, minQuantity: v })}
                 />
               </div>
             </div>
@@ -357,7 +356,7 @@ export function SupplyScreen() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Quantidade</Label>
-                <Input value={moveQty} onChange={(e) => setMoveQty(e.target.value)} inputMode="decimal" />
+                <QuantityInput value={moveQty} onChange={setMoveQty} min={1} />
               </div>
               {moveType === "entrada" && (
                 <div className="space-y-1.5">

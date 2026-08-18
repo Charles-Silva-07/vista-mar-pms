@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { QuantityInput } from "@/components/pms/QuantityInput";
 import { brl, day, usePms, type Reservation } from "@/lib/pms-store";
 import { cn } from "@/lib/utils";
 
@@ -134,7 +135,7 @@ export function AccountModal({
 
           <div className="rounded-xl border border-dashed border-border p-4">
             <p className="mb-3 text-sm font-semibold">+ Adicionar item ao consumo</p>
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_5rem]">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
               <div className="space-y-1">
                 <Label className="text-xs">Produto</Label>
                 <Select value={productId} onValueChange={setProductId}>
@@ -153,7 +154,7 @@ export function AccountModal({
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Qtd.</Label>
-                <Input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="numeric" />
+                <QuantityInput value={qty} onChange={setQty} min={1} />
               </div>
             </div>
             {isCustom && (

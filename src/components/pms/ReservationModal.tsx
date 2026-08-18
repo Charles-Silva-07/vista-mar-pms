@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { QuantityInput } from "@/components/pms/QuantityInput";
 import { brl, day, usePms } from "@/lib/pms-store";
 
 export function ReservationModal({
@@ -113,11 +114,7 @@ export function ReservationModal({
             </div>
             <div className="space-y-1.5">
               <Label>Diárias</Label>
-              <Input
-                value={nights}
-                onChange={(e) => setNights(e.target.value)}
-                inputMode="numeric"
-              />
+              <QuantityInput value={nights} onChange={setNights} min={1} />
             </div>
           </div>
           <div className="space-y-1.5">
