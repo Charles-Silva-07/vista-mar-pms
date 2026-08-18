@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, Plus, Scale } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Plus,
+  Scale,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,14 +27,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { brl, day, usePms } from "@/lib/pms-store";
+import { brl, currentMonth, day, usePms } from "@/lib/pms-store";
 import { cn } from "@/lib/utils";
+import type { DemoAccount } from "@/lib/auth";
 
 const categories = ["Energia/Água", "Lavanderia", "Insumos/Frigobar", "Salários", "Manutenção"];
+const ALL_CATEGORIES = "__todas__";
 
-export function FinanceScreen() {
-  const { transactions, addTransaction } = usePms();
+export function FinanceScreen({ accounts }: { accounts: DemoAccount[] }) {
+  const { transactions, addTransaction, salaryPayments, addSalaryPayment } = usePms();
   const [open, setOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
   const [form, setForm] = useState({
     description: "",
     amount: "",
@@ -38,6 +48,31 @@ export function FinanceScreen() {
 
   const income = transactions.filter((t) => t.type === "entrada").reduce((s, t) => s + t.amount, 0);
   const expense = transactions.filter((t) => t.type === "saida").reduce((s, t) => s + t.amount, 0);
+
+  const activeStaff = useMemo(() => accounts.filter((a) => a.active), [accounts]);
+  const staffMonthlyCost = (a: DemoAccount) =>
+    a.salary +
+    (a.transportBenefit ? a.transportBenefitAmount : 0) +
+    (a.mealBenefit ? a.mealBenefitAmount : 0);
+  const payrollTotal = activeStaff.reduce((s, a) => s + staffMonthlyCost(a), 0);
+  const isPaidThisMonth = (staffId: string) =>
+    salaryPayments.some((p) => p.staffId === staffId && p.month === currentMonth());
+  const payrollPaid = activeStaff
+    .filter((a) => isPaidThisMonth(a.id))
+    .reduce((s, a) => s + staffMonthlyCost(a), 0);
+  const payrollRemaining = Math.max(0, payrollTotal - payrollPaid);
+
+  const markStaffPaid = (a: DemoAccount) => {
+    const amount = staffMonthlyCost(a);
+    addSalaryPayment({
+      staffId: a.id,
+      staffName: a.name,
+      month: currentMonth(),
+      amount,
+      date: day(0),
+    });
+    toast.success(`Salário de ${a.name} (${brl(amount)}) lançado no fluxo de caixa.`);
+  };
 
   const chartData = useMemo(() => {
     const map = new Map<string, { dia: string; Entradas: number; Saídas: number }>();
@@ -53,9 +88,17 @@ export function FinanceScreen() {
     return [...map.values()];
   }, [transactions]);
 
-  const rows = useMemo(
-    () => [...transactions].sort((a, b) => b.date.localeCompare(a.date)),
+  const transactionCategories = useMemo(
+    () => [...new Set(transactions.map((t) => t.category))].sort(),
     [transactions],
+  );
+
+  const rows = useMemo(
+    () =>
+      [...transactions]
+        .filter((t) => categoryFilter === ALL_CATEGORIES || t.category === categoryFilter)
+        .sort((a, b) => b.date.localeCompare(a.date)),
+    [transactions, categoryFilter],
   );
 
   const submit = () => {
@@ -104,11 +147,86 @@ export function FinanceScreen() {
         </div>
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+      <div className="rounded-2xl border border-border bg-card shadow-sm">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+          <Users className="size-4 text-muted-foreground" />
+          <h2 className="text-sm font-semibold">Folha de pagamento (mês atual)</h2>
+        </div>
+        <div className="grid gap-4 p-4 sm:grid-cols-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Custo total do mês
+            </p>
+            <p className="mt-1 text-xl font-bold">{brl(payrollTotal)}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Já pago</p>
+            <p className="mt-1 text-xl font-bold text-success">{brl(payrollPaid)}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Falta pagar</p>
+            <p className={cn("mt-1 text-xl font-bold", payrollRemaining > 0 && "text-destructive")}>
+              {brl(payrollRemaining)}
+            </p>
+          </div>
+        </div>
+        <ul className="divide-y divide-border border-t border-border">
+          {activeStaff.length === 0 && (
+            <li className="px-4 py-4 text-sm text-muted-foreground">
+              Nenhum colaborador ativo cadastrado.
+            </li>
+          )}
+          {activeStaff.map((a) => {
+            const paid = isPaidThisMonth(a.id);
+            return (
+              <li
+                key={a.id}
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 text-sm"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{a.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {a.role} · {brl(staffMonthlyCost(a))}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {paid ? (
+                    <Badge className="bg-success/15 text-success">Pago</Badge>
+                  ) : (
+                    <>
+                      <Badge className="bg-warning/20 text-warning">Pendente</Badge>
+                      <Button size="sm" variant="outline" onClick={() => markStaffPaid(a)}>
+                        <Wallet className="size-3.5" /> Marcar pago
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="truncate text-lg font-semibold">Fluxo de caixa</h2>
-        <Button className="shrink-0" onClick={() => setOpen(true)}>
-          <Plus /> Lançar Despesa
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_CATEGORIES}>Todas as categorias</SelectItem>
+              {transactionCategories.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button className="shrink-0" onClick={() => setOpen(true)}>
+            <Plus /> Lançar Despesa
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">

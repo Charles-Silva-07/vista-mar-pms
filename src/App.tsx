@@ -203,7 +203,9 @@ function Workspace({
               onRemove={onRemoveAccount}
             />
           )}
-          {screen === "financeiro" && canAccessScreen(user, "financeiro") && <FinanceScreen />}
+          {screen === "financeiro" && canAccessScreen(user, "financeiro") && (
+            <FinanceScreen accounts={accounts} />
+          )}
         </main>
       </div>
 
