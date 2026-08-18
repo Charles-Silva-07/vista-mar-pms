@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dialog,
@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -22,13 +24,13 @@ import {
   occupancyColor,
   occupancyLabels,
   occupancyStyles,
-  paymentStatusLabels,
-  paymentStatusStyles,
-  paymentStatusTags,
+  paymentSituation,
+  paymentSituationStyles,
+  paymentTag,
+  reservationTotal,
   statusLabels,
   today,
   usePms,
-  type PaymentStatus,
   type Reservation,
 } from "@/lib/pms-store";
 import { cn } from "@/lib/utils";
@@ -54,7 +56,12 @@ export function MapScreen({
 }) {
   const { rooms, reservations, updateReservationPayment } = usePms();
   const [selected, setSelected] = useState<Reservation | null>(null);
+  const [paidInput, setPaidInput] = useState("");
   const [view, setView] = useState({ year: today.getFullYear(), month: today.getMonth() });
+
+  useEffect(() => {
+    setPaidInput(selected ? String(selected.amountPaid).replace(".", ",") : "");
+  }, [selected?.id]);
 
   const { year, month } = view;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -78,6 +85,7 @@ export function MapScreen({
       { key: "disponivel" as const, label: "Disponível", className: "border border-border bg-card" },
       { key: "reservado" as const, label: occupancyLabels.reservado, className: occupancyStyles.reservado },
       { key: "ocupado" as const, label: occupancyLabels.ocupado, className: occupancyStyles.ocupado },
+      { key: "cancelada" as const, label: occupancyLabels.cancelada, className: occupancyStyles.cancelada },
       { key: "encerrada" as const, label: occupancyLabels.encerrada, className: occupancyStyles.encerrada },
     ],
     [],
@@ -157,11 +165,7 @@ export function MapScreen({
           </div>
 
           {rooms.map((r) => {
-            // "Cancelada" não bloqueia mais o quarto — a célula fica livre pra
-            // reservar de novo, então não desenhamos barra pra ela.
-            const bars = reservations.filter(
-              (res) => res.roomId === r.id && res.status !== "cancelada",
-            );
+            const bars = reservations.filter((res) => res.roomId === r.id);
             return (
               <div key={r.id} className="flex border-b border-border last:border-0">
                 <div className="w-[200px] shrink-0 border-r border-border px-3 py-2">
@@ -197,9 +201,9 @@ export function MapScreen({
                         )}
                       >
                         <span className="truncate">{res.guestName}</span>
-                        {res.paymentStatus !== "nao_pago" && (
+                        {paymentSituation(res) !== "nao_pago" && (
                           <span className="shrink-0 rounded bg-black/15 px-1 text-[10px] font-semibold">
-                            {paymentStatusTags[res.paymentStatus]}
+                            {paymentTag(res)}
                           </span>
                         )}
                       </button>
@@ -253,28 +257,62 @@ export function MapScreen({
                 <span className="text-xs font-medium text-muted-foreground">
                   Situação financeira
                 </span>
-                <Select
-                  value={selected.paymentStatus}
-                  onValueChange={(v) => {
-                    updateReservationPayment(selected.id, v as PaymentStatus);
-                    setSelected((s) => (s ? { ...s, paymentStatus: v as PaymentStatus } : s));
-                    toast.success("Situação financeira atualizada.");
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(["nao_pago", "sinal", "pago"] as const).map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {paymentStatusLabels[p]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className={cn("inline-block rounded px-2 py-0.5 text-xs font-semibold", paymentStatusStyles[selected.paymentStatus])}>
-                  {paymentStatusTags[selected.paymentStatus]}
-                </span>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground shrink-0">Valor pago (R$)</Label>
+                  <Input
+                    value={paidInput}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      setPaidInput(raw);
+                      const amount = Number(raw.replace(",", ".")) || 0;
+                      updateReservationPayment(selected.id, amount);
+                      setSelected((s) => (s ? { ...s, amountPaid: amount } : s));
+                    }}
+                    inputMode="decimal"
+                    placeholder="0,00"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const half = reservationTotal(selected) / 2;
+                      updateReservationPayment(selected.id, half);
+                      setSelected((s) => (s ? { ...s, amountPaid: half } : s));
+                      setPaidInput(String(half).replace(".", ","));
+                      toast.success("Sinal de 50% registrado.");
+                    }}
+                  >
+                    Marcar sinal (50%)
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const total = reservationTotal(selected);
+                      updateReservationPayment(selected.id, total);
+                      setSelected((s) => (s ? { ...s, amountPaid: total } : s));
+                      setPaidInput(String(total).replace(".", ","));
+                      toast.success("Reserva marcada como paga integralmente.");
+                    }}
+                  >
+                    Marcar pago integral
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs text-muted-foreground">
+                    {brl(selected.amountPaid)} de {brl(reservationTotal(selected))}
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-block rounded px-2 py-0.5 text-xs font-semibold",
+                      paymentSituationStyles[paymentSituation(selected)],
+                    )}
+                  >
+                    {paymentTag(selected)}
+                  </span>
+                </div>
               </div>
               <Button variant="outline" className="w-full" onClick={() => setSelected(null)}>
                 Fechar

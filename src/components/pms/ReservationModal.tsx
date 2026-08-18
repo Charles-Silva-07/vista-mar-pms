@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { day, paymentStatusLabels, usePms, type PaymentStatus } from "@/lib/pms-store";
+import { brl, day, usePms } from "@/lib/pms-store";
 
 export function ReservationModal({
   open,
@@ -36,7 +36,7 @@ export function ReservationModal({
   const [start, setStart] = useState(defaultDate ?? day(0));
   const [nights, setNights] = useState("2");
   const [eta, setEta] = useState("14:00");
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("nao_pago");
+  const [amountPaidInput, setAmountPaidInput] = useState("0");
 
   useEffect(() => {
     if (open) {
@@ -44,6 +44,9 @@ export function ReservationModal({
       setStart(defaultDate ?? day(0));
     }
   }, [open, defaultRoomId, defaultDate, rooms]);
+
+  const room = rooms.find((r) => r.id === roomId);
+  const total = (room?.rate ?? 0) * (Number(nights) || 1);
 
   const submit = () => {
     if (!guestName.trim()) {
@@ -53,21 +56,22 @@ export function ReservationModal({
     const n = Number(nights) || 1;
     const endDate = new Date(start);
     endDate.setDate(endDate.getDate() + n);
-    const room = rooms.find((r) => r.id === roomId)!;
+    const chosenRoom = rooms.find((r) => r.id === roomId)!;
+    const amountPaid = Math.max(0, Number(amountPaidInput.replace(",", ".")) || 0);
     addReservation({
       roomId,
       guestName: guestName.trim(),
       start,
       end: endDate.toISOString().slice(0, 10),
       status: "confirmada",
-      paymentStatus,
+      amountPaid,
       eta,
       nights: n,
-      rate: room.rate,
+      rate: chosenRoom.rate,
     });
-    toast.success(`Reserva criada para ${guestName} no quarto ${room.number}.`);
+    toast.success(`Reserva criada para ${guestName} no quarto ${chosenRoom.number}.`);
     setGuestName("");
-    setPaymentStatus("nao_pago");
+    setAmountPaidInput("0");
     onOpenChange(false);
   };
 
@@ -121,19 +125,34 @@ export function ReservationModal({
             <Input type="time" value={eta} onChange={(e) => setEta(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label>Situação financeira</Label>
-            <Select value={paymentStatus} onValueChange={(v) => setPaymentStatus(v as PaymentStatus)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(["nao_pago", "sinal", "pago"] as const).map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {paymentStatusLabels[p]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center justify-between">
+              <Label>Valor pago agora (R$)</Label>
+              <span className="text-xs text-muted-foreground">Total da estadia: {brl(total)}</span>
+            </div>
+            <Input
+              value={amountPaidInput}
+              onChange={(e) => setAmountPaidInput(e.target.value)}
+              inputMode="decimal"
+              placeholder="0,00"
+            />
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setAmountPaidInput(String(total / 2).replace(".", ","))}
+              >
+                Sinal (50%)
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setAmountPaidInput(String(total).replace(".", ","))}
+              >
+                Pago integral
+              </Button>
+            </div>
           </div>
           <Button className="w-full" onClick={submit}>
             Salvar reserva

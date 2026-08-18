@@ -1,5 +1,13 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Plus, Search } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  FileSpreadsheet,
+  FileText,
+  Plus,
+  Search,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +43,51 @@ export function SupplyScreen() {
   }, [supplies, query]);
 
   const lowStockCount = supplies.filter(isLowStock).length;
+
+  const shoppingList = useMemo(
+    () =>
+      supplies
+        .filter(isLowStock)
+        .map((s) => ({ ...s, suggested: Math.max(0, s.minQuantity - s.quantity) })),
+    [supplies],
+  );
+
+  const todayLabel = new Date().toLocaleDateString("pt-BR", { dateStyle: "long" });
+
+  const exportExcel = () => {
+    if (shoppingList.length === 0) {
+      toast.error("Nenhum insumo com estoque baixo pra exportar.");
+      return;
+    }
+    const escape = (v: string | number) => {
+      const s = String(v);
+      return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = ["Insumo", "Unidade", "Estoque atual", "Estoque mínimo", "Sugestão de compra"];
+    const rows = shoppingList.map((s) => [s.name, s.unit, s.quantity, s.minQuantity, s.suggested]);
+    const lines = [header, ...rows].map((r) => r.map(escape).join(";"));
+    // BOM no início + ";" como separador: é o que o Excel em português abre
+    // certinho, com acento correto, sem precisar importar nada manualmente.
+    const csv = "﻿" + lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `lista-compras-estoque-${day(0)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Lista exportada para Excel.");
+  };
+
+  const exportPdf = () => {
+    if (shoppingList.length === 0) {
+      toast.error("Nenhum insumo com estoque baixo pra exportar.");
+      return;
+    }
+    window.print();
+  };
 
   const recentMovements = useMemo(
     () => [...supplyMovements].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6),
@@ -93,10 +146,18 @@ export function SupplyScreen() {
       {lowStockCount > 0 && (
         <div className="flex items-center gap-2 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
           <AlertTriangle className="size-4 shrink-0" />
-          <span>
+          <span className="flex-1">
             <b>{lowStockCount}</b> {lowStockCount === 1 ? "insumo está" : "insumos estão"} com
             estoque baixo — reabasteça em breve.
           </span>
+          <div className="flex shrink-0 gap-2">
+            <Button size="sm" variant="outline" onClick={exportPdf}>
+              <FileText className="size-4" /> Exportar PDF
+            </Button>
+            <Button size="sm" variant="outline" onClick={exportExcel}>
+              <FileSpreadsheet className="size-4" /> Exportar Excel
+            </Button>
+          </div>
         </div>
       )}
 
@@ -319,6 +380,40 @@ export function SupplyScreen() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Só aparece na hora de imprimir/exportar PDF (ver #print-area em styles.css) */}
+      <div id="print-area" className="p-8 text-black">
+        <h1 className="text-xl font-bold">Alameda Pousada — Lista de Compras</h1>
+        <p className="mt-1 text-sm text-gray-600">Insumos com estoque baixo · {todayLabel}</p>
+        <table className="mt-6 w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b-2 border-black text-left">
+              <th className="py-2 pr-2">✓</th>
+              <th className="py-2 pr-2">Insumo</th>
+              <th className="py-2 pr-2">Estoque atual</th>
+              <th className="py-2 pr-2">Mínimo</th>
+              <th className="py-2 pr-2">Sugestão de compra</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shoppingList.map((s) => (
+              <tr key={s.id} className="border-b border-gray-300">
+                <td className="py-2 pr-2">☐</td>
+                <td className="py-2 pr-2">{s.name}</td>
+                <td className="py-2 pr-2">
+                  {s.quantity} {s.unit}
+                </td>
+                <td className="py-2 pr-2">
+                  {s.minQuantity} {s.unit}
+                </td>
+                <td className="py-2 pr-2">
+                  {s.suggested} {s.unit}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

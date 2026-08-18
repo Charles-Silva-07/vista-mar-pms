@@ -2,10 +2,6 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from "re
 
 export type ReservationStatus = "confirmada" | "andamento" | "finalizada" | "cancelada";
 
-// Situação financeira da reserva: se ainda não pagou nada, já deu sinal/entrada,
-// ou já quitou o valor integral.
-export type PaymentStatus = "nao_pago" | "sinal" | "pago";
-
 export type Room = { id: string; number: string; category: string; rate: number };
 
 export type Guest = {
@@ -30,7 +26,10 @@ export type Reservation = {
   start: string; // yyyy-mm-dd
   end: string; // yyyy-mm-dd (checkout day)
   status: ReservationStatus;
-  paymentStatus: PaymentStatus;
+  // Quanto o hóspede já pagou, em R$ (sinal/adiantamento ou o valor cheio).
+  // O "falta pagar" e o status (não pago/parcial/pago) são sempre calculados
+  // a partir disso, nunca guardados como rótulo solto.
+  amountPaid: number;
   eta: string;
   nights: number;
   rate: number;
@@ -183,7 +182,7 @@ const seedReservations: Reservation[] = [
     start: day(-2),
     end: day(2),
     status: "andamento",
-    paymentStatus: "pago",
+    amountPaid: 4 * 620, // pago integral
     eta: "14:00",
     nights: 4,
     rate: 620,
@@ -196,7 +195,7 @@ const seedReservations: Reservation[] = [
     start: day(-1),
     end: day(1),
     status: "andamento",
-    paymentStatus: "sinal",
+    amountPaid: 380, // sinal de 50% (total 760)
     eta: "15:30",
     nights: 2,
     rate: 380,
@@ -209,7 +208,7 @@ const seedReservations: Reservation[] = [
     start: day(0),
     end: day(5),
     status: "confirmada",
-    paymentStatus: "sinal",
+    amountPaid: 2125, // sinal de 50% (total 4250)
     eta: "13:00",
     nights: 5,
     rate: 850,
@@ -222,7 +221,7 @@ const seedReservations: Reservation[] = [
     start: day(0),
     end: day(3),
     status: "confirmada",
-    paymentStatus: "nao_pago",
+    amountPaid: 0,
     eta: "18:40",
     nights: 3,
     rate: 520,
@@ -235,7 +234,7 @@ const seedReservations: Reservation[] = [
     start: day(-5),
     end: day(-1),
     status: "finalizada",
-    paymentStatus: "pago",
+    amountPaid: 4 * 780,
     eta: "12:00",
     nights: 4,
     rate: 780,
@@ -247,7 +246,7 @@ const seedReservations: Reservation[] = [
     start: day(3),
     end: day(6),
     status: "confirmada",
-    paymentStatus: "pago",
+    amountPaid: 3 * 380,
     eta: "16:00",
     nights: 3,
     rate: 380,
@@ -259,7 +258,7 @@ const seedReservations: Reservation[] = [
     start: day(1),
     end: day(4),
     status: "cancelada",
-    paymentStatus: "nao_pago",
+    amountPaid: 0,
     eta: "20:00",
     nights: 3,
     rate: 260,
@@ -271,13 +270,13 @@ const seedReservations: Reservation[] = [
     start: day(-3),
     end: day(0),
     status: "andamento",
-    paymentStatus: "pago",
+    amountPaid: 3 * 340,
     eta: "11:00",
     nights: 3,
     rate: 340,
   },
   // Reservas de alta temporada (Romaria de Juazeiro do Norte, setembro) —
-  // demonstram o filtro de mês e os 3 status de pagamento de uma vez.
+  // demonstram o filtro de mês e os 3 níveis de pagamento de uma vez.
   {
     id: "r9",
     roomId: "101",
@@ -285,7 +284,7 @@ const seedReservations: Reservation[] = [
     start: day(14),
     end: day(19),
     status: "confirmada",
-    paymentStatus: "sinal",
+    amountPaid: 1550, // sinal de 50% (total 3100)
     eta: "10:00",
     nights: 5,
     rate: 620,
@@ -297,7 +296,7 @@ const seedReservations: Reservation[] = [
     start: day(16),
     end: day(21),
     status: "confirmada",
-    paymentStatus: "pago",
+    amountPaid: 5 * 380,
     eta: "09:30",
     nights: 5,
     rate: 380,
@@ -309,7 +308,7 @@ const seedReservations: Reservation[] = [
     start: day(20),
     end: day(23),
     status: "confirmada",
-    paymentStatus: "nao_pago",
+    amountPaid: 0,
     eta: "17:00",
     nights: 3,
     rate: 520,
@@ -506,8 +505,10 @@ function usePmsState() {
         setReservations((prev) => [...prev, { ...r, id: uid() }]),
       updateReservationStatus: (id: string, status: ReservationStatus) =>
         setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r))),
-      updateReservationPayment: (id: string, paymentStatus: PaymentStatus) =>
-        setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, paymentStatus } : r))),
+      updateReservationPayment: (id: string, amountPaid: number) =>
+        setReservations((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, amountPaid: Math.max(0, amountPaid) } : r)),
+        ),
       addConsumption: (item: Omit<ConsumptionItem, "id">) =>
         setConsumptions((prev) => [...prev, { ...item, id: uid() }]),
       addTransaction: (t: Omit<Transaction, "id">) =>
@@ -579,45 +580,61 @@ export const statusLabels: Record<ReservationStatus, string> = {
   cancelada: "Cancelada / No-show",
 };
 
-export const paymentStatusLabels: Record<PaymentStatus, string> = {
-  nao_pago: "Não pago",
-  sinal: "Sinal pago",
-  pago: "Pago integral",
-};
+// Valor total da diária da reserva (sem contar consumo extra, que é
+// controlado à parte no extrato/checkout).
+export function reservationTotal(res: Reservation): number {
+  return res.nights * res.rate;
+}
 
-// Sigla curta pra mostrar em cards/listas sem ocupar espaço.
-export const paymentStatusTags: Record<PaymentStatus, string> = {
-  nao_pago: "Não pago",
-  sinal: "Sinal",
-  pago: "PG",
-};
+export type PaymentSituation = "nao_pago" | "parcial" | "pago";
 
-export const paymentStatusStyles: Record<PaymentStatus, string> = {
+export function paymentSituation(res: Reservation): PaymentSituation {
+  const total = reservationTotal(res);
+  if (res.amountPaid <= 0) return "nao_pago";
+  if (res.amountPaid >= total) return "pago";
+  return "parcial";
+}
+
+// Etiqueta mostrada nas barras do mapa e nas listas: em vez de um rótulo
+// genérico ("Sinal"), mostra sempre o valor concreto que falta pagar - fica
+// claro pra quem está olhando, sem precisar decorar o que cada palavra quer dizer.
+export function paymentTag(res: Reservation): string {
+  const situation = paymentSituation(res);
+  if (situation === "nao_pago") return "Não pago";
+  if (situation === "pago") return "PG";
+  const remaining = reservationTotal(res) - res.amountPaid;
+  return `Falta ${brl(remaining)}`;
+}
+
+export const paymentSituationStyles: Record<PaymentSituation, string> = {
   nao_pago: "bg-muted text-muted-foreground",
-  sinal: "bg-warning/20 text-warning",
+  parcial: "bg-warning/20 text-warning",
   pago: "bg-success/15 text-success",
 };
 
-// Esquema de 3 cores do Mapa de Reservas, pedido pelo cliente:
-// branco (disponível - célula sem reserva), laranja (reservado, pagamento
-// pendente) e vermelho (ocupado - check-in feito ou pago integral).
-export type OccupancyColor = "reservado" | "ocupado" | "encerrada";
+// Esquema de cores do Mapa de Reservas: branco (disponível - célula sem
+// reserva), laranja (reservado, pagamento pendente), verde (ocupado -
+// check-in feito ou pago integral) e vermelho (cancelada - sinaliza problema).
+export type OccupancyColor = "reservado" | "ocupado" | "cancelada" | "encerrada";
 
 export function occupancyColor(res: Reservation): OccupancyColor {
+  if (res.status === "cancelada") return "cancelada";
   if (res.status === "finalizada") return "encerrada";
-  const isOcupado = res.status === "andamento" || res.paymentStatus === "pago";
+  const isOcupado = res.status === "andamento" || paymentSituation(res) === "pago";
   return isOcupado ? "ocupado" : "reservado";
 }
 
 export const occupancyStyles: Record<OccupancyColor, string> = {
   reservado: "bg-warning text-warning-foreground",
-  ocupado: "bg-destructive text-destructive-foreground",
+  ocupado: "bg-success text-success-foreground",
+  cancelada: "bg-destructive text-destructive-foreground",
   encerrada: "bg-muted-foreground/40 text-background",
 };
 
 export const occupancyLabels: Record<OccupancyColor, string> = {
   reservado: "Reservado (pagamento pendente)",
   ocupado: "Ocupado",
+  cancelada: "Cancelada",
   encerrada: "Encerrada",
 };
 

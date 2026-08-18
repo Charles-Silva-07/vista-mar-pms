@@ -159,3 +159,27 @@
     color: var(--color-foreground);
   }
 }
+
+/* Impressão de relatórios: cada tela pode ter um bloco #print-area com o
+ * conteúdo pra imprimir (ex.: lista de compras do estoque). Ele fica
+ * escondido na tela normal e vira o único conteúdo visível ao imprimir. */
+#print-area {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #print-area,
+  #print-area * {
+    visibility: visible;
+  }
+  #print-area {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+}

@@ -85,7 +85,7 @@ export function AccountModal({
       status: "Pago",
     });
     updateReservationStatus(reservation.id, "finalizada");
-    updateReservationPayment(reservation.id, "pago");
+    updateReservationPayment(reservation.id, lodging);
     toast.success(`Check-out concluído. Recibo de ${brl(total)} emitido.`);
     onOpenChange(false);
   };

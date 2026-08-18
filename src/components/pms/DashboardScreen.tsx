@@ -12,8 +12,9 @@ import {
 import {
   brl,
   day,
-  paymentStatusStyles,
-  paymentStatusTags,
+  paymentSituation,
+  paymentSituationStyles,
+  paymentTag,
   usePms,
   type Reservation,
 } from "@/lib/pms-store";
@@ -191,10 +192,10 @@ export function DashboardScreen({
                       <span
                         className={cn(
                           "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold",
-                          paymentStatusStyles[r.paymentStatus],
+                          paymentSituationStyles[paymentSituation(r)],
                         )}
                       >
-                        {paymentStatusTags[r.paymentStatus]}
+                        {paymentTag(r)}
                       </span>
                     </div>
                     <p className="truncate text-xs text-muted-foreground">
@@ -231,10 +232,10 @@ export function DashboardScreen({
                       <span
                         className={cn(
                           "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold",
-                          paymentStatusStyles[r.paymentStatus],
+                          paymentSituationStyles[paymentSituation(r)],
                         )}
                       >
-                        {paymentStatusTags[r.paymentStatus]}
+                        {paymentTag(r)}
                       </span>
                     </div>
                     <p className="truncate text-xs text-muted-foreground">
