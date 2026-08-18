@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { GeneratedAvatar } from "@/components/pms/GeneratedAvatar";
 import {
   Dialog,
   DialogContent,
@@ -45,23 +45,6 @@ const accessLevelLabels: Record<AccessLevel, string> = {
   funcionario: "Funcionário (sem Financeiro/Colaboradores)",
   gerencia: "Gerência (acesso total)",
 };
-
-// Cores variando pelo nome, só pra não ficar todo mundo com o mesmo avatar.
-const AVATAR_COLORS = [
-  "bg-info/20 text-info",
-  "bg-success/20 text-success",
-  "bg-warning/20 text-warning",
-  "bg-destructive/15 text-destructive",
-  "bg-accent text-accent-foreground",
-];
-function avatarColor(name: string) {
-  const sum = [...name].reduce((s, c) => s + c.charCodeAt(0), 0);
-  return AVATAR_COLORS[sum % AVATAR_COLORS.length];
-}
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
-}
 
 // Cargos comuns de pousada/hotel - cobre desde uma pousada pequena até um
 // hotel maior (cozinha, serviços gerais, manutenção, segurança...). "Outro"
@@ -354,12 +337,17 @@ export function StaffScreen({
                 <tr key={a.id} className={cn("hover:bg-muted/40", !a.active && "opacity-50")}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <Avatar className="size-9">
-                        {a.photoUrl && <AvatarImage src={a.photoUrl} alt={a.name} className="object-cover" />}
-                        <AvatarFallback className={cn("text-xs font-semibold", avatarColor(a.name))}>
-                          {initials(a.name)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div className="size-9 shrink-0 overflow-hidden rounded-full">
+                        {a.photoUrl ? (
+                          <img
+                            src={a.photoUrl}
+                            alt={a.name}
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <GeneratedAvatar name={a.name} size={36} />
+                        )}
+                      </div>
                       <div className="min-w-0">
                         <p className="truncate font-medium">
                           {a.name}
@@ -483,6 +471,8 @@ export function StaffScreen({
                     alt="Foto 3x4 do colaborador"
                     className="h-full w-full object-cover"
                   />
+                ) : form.name.trim() ? (
+                  <GeneratedAvatar name={form.name} size={96} />
                 ) : (
                   <UserRound className="size-8 text-muted-foreground" />
                 )}

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canAccessScreen, type StaffUser } from "@/lib/auth";
+import { GeneratedAvatar } from "@/components/pms/GeneratedAvatar";
 
 export type ScreenKey =
   | "dashboard"
@@ -99,8 +100,15 @@ export function AppSidebar({
       </nav>
 
       <div className="border-t border-sidebar-border p-4">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl bg-sidebar-accent p-3">
-          <div className="min-w-0">
+        <div className="flex items-center gap-2 rounded-xl bg-sidebar-accent p-3">
+          <div className="size-9 shrink-0 overflow-hidden rounded-full">
+            {user.photoUrl ? (
+              <img src={user.photoUrl} alt={user.name} className="size-full object-cover" />
+            ) : (
+              <GeneratedAvatar name={user.name} size={36} />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-sidebar-accent-foreground">
               {user.role} — {user.name}
             </p>
