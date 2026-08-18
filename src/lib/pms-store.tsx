@@ -84,6 +84,15 @@ export type Transaction = {
   status: "Pago" | "Pendente";
 };
 
+export type SalaryPayment = {
+  id: string;
+  staffId: string;
+  staffName: string; // guardado junto pra não depender do cadastro do colaborador ainda existir
+  month: string; // "yyyy-mm"
+  amount: number; // salário + benefícios do mês, somados
+  date: string;
+};
+
 export const iso = (d: Date) => d.toISOString().slice(0, 10);
 export const today = new Date();
 export const day = (offset: number) => {
@@ -477,6 +486,21 @@ const seedTransactions: Transaction[] = [
   },
 ];
 
+// Exemplo: a Ana Paula (u1) já foi paga esse mês, o Carlos (u2) ainda não -
+// pra demonstrar os dois estados (Pago/Pendente) na tela de Colaboradores.
+export const currentMonth = () => day(0).slice(0, 7);
+
+const seedSalaryPayments: SalaryPayment[] = [
+  {
+    id: "sp1",
+    staffId: "u1",
+    staffName: "Ana Paula",
+    month: currentMonth(),
+    amount: 1800 + 220 + 450,
+    date: day(-10),
+  },
+];
+
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 function usePmsState() {
@@ -488,6 +512,8 @@ function usePmsState() {
   const [supplies, setSupplies] = useState<SupplyItem[]>(seedSupplies);
   const [supplyMovements, setSupplyMovements] =
     useState<SupplyMovement[]>(seedSupplyMovements);
+  const [salaryPayments, setSalaryPayments] =
+    useState<SalaryPayment[]>(seedSalaryPayments);
 
   return useMemo(
     () => ({
@@ -499,6 +525,7 @@ function usePmsState() {
       products,
       supplies,
       supplyMovements,
+      salaryPayments,
       addGuest: (g: Omit<Guest, "id" | "stays">) =>
         setGuests((prev) => [{ ...g, id: uid(), stays: 0 }, ...prev]),
       addReservation: (r: Omit<Reservation, "id">) =>
@@ -547,8 +574,35 @@ function usePmsState() {
           ]);
         }
       },
+      // Registra o pagamento do mês (salário + benefícios já somados) e
+      // lança sozinho a despesa correspondente no Financeiro - mesmo
+      // princípio do addSupplyMovement acima.
+      addSalaryPayment: (p: Omit<SalaryPayment, "id">) => {
+        setSalaryPayments((prev) => [{ ...p, id: uid() }, ...prev]);
+        setTransactions((prev) => [
+          ...prev,
+          {
+            id: uid(),
+            date: p.date,
+            description: `Salário — ${p.staffName} (${p.month})`,
+            category: "Salários",
+            amount: p.amount,
+            type: "saida",
+            status: "Pago",
+          },
+        ]);
+      },
     }),
-    [guests, reservations, consumptions, transactions, products, supplies, supplyMovements],
+    [
+      guests,
+      reservations,
+      consumptions,
+      transactions,
+      products,
+      supplies,
+      supplyMovements,
+      salaryPayments,
+    ],
   );
 }
 

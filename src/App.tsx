@@ -8,11 +8,20 @@ import { MapScreen } from "@/components/pms/MapScreen";
 import { GuestsScreen } from "@/components/pms/GuestsScreen";
 import { ProductsScreen } from "@/components/pms/ProductsScreen";
 import { SupplyScreen } from "@/components/pms/SupplyScreen";
+import { StaffScreen } from "@/components/pms/StaffScreen";
 import { FinanceScreen } from "@/components/pms/FinanceScreen";
 import { AccountModal } from "@/components/pms/AccountModal";
 import { ReservationModal } from "@/components/pms/ReservationModal";
 import { PmsProvider, type Reservation } from "@/lib/pms-store";
-import { canAccessScreen, clearSavedUser, loadSavedUser, saveUser, type StaffUser } from "@/lib/auth";
+import {
+  canAccessScreen,
+  clearSavedUser,
+  loadSavedUser,
+  saveUser,
+  SEED_ACCOUNTS,
+  type DemoAccount,
+  type StaffUser,
+} from "@/lib/auth";
 
 const titles: Record<ScreenKey, { title: string; subtitle: string }> = {
   dashboard: { title: "Visão Geral", subtitle: "Resumo operacional da pousada hoje" },
@@ -20,16 +29,41 @@ const titles: Record<ScreenKey, { title: string; subtitle: string }> = {
   hospedes: { title: "Hóspedes (FNRH)", subtitle: "Cadastro legal e histórico de estadias" },
   produtos: { title: "Produtos & Preços", subtitle: "Catálogo de itens vendidos na pousada" },
   estoque: { title: "Estoque de Insumos", subtitle: "Controle de compras, uso e estoque mínimo" },
+  colaboradores: { title: "Colaboradores", subtitle: "Cadastro de acesso da equipe" },
   financeiro: { title: "Financeiro", subtitle: "Fluxo de caixa, despesas e resultado" },
 };
 
+const uid = () => Math.random().toString(36).slice(2, 10);
+
 export function App() {
   const [user, setUser] = useState<StaffUser | null>(() => loadSavedUser());
+  const [accounts, setAccounts] = useState<DemoAccount[]>(SEED_ACCOUNTS);
+
+  const addAccount = (a: Omit<DemoAccount, "id">) => {
+    setAccounts((prev) => [{ ...a, id: uid() }, ...prev]);
+  };
+
+  const updateAccount = (id: string, patch: Omit<DemoAccount, "id">) => {
+    setAccounts((prev) => prev.map((a) => (a.id === id ? { id, ...patch } : a)));
+    // Se a gerência editar o próprio usuário logado, atualiza a sessão na
+    // hora - senão a sidebar e as regras de acesso ficam com dado velho.
+    setUser((prevUser) => {
+      if (!prevUser || prevUser.id !== id) return prevUser;
+      const { password: _password, ...updated } = { id, ...patch };
+      saveUser(updated);
+      return updated;
+    });
+  };
+
+  const removeAccount = (id: string) => {
+    setAccounts((prev) => prev.filter((a) => a.id !== id));
+  };
 
   if (!user) {
     return (
       <>
         <LoginScreen
+          accounts={accounts}
           onLogin={(u) => {
             saveUser(u);
             setUser(u);
@@ -44,6 +78,10 @@ export function App() {
     <PmsProvider>
       <Workspace
         user={user}
+        accounts={accounts}
+        onAddAccount={addAccount}
+        onUpdateAccount={updateAccount}
+        onRemoveAccount={removeAccount}
         onLogout={() => {
           clearSavedUser();
           setUser(null);
@@ -54,7 +92,21 @@ export function App() {
   );
 }
 
-function Workspace({ user, onLogout }: { user: StaffUser; onLogout: () => void }) {
+function Workspace({
+  user,
+  accounts,
+  onAddAccount,
+  onUpdateAccount,
+  onRemoveAccount,
+  onLogout,
+}: {
+  user: StaffUser;
+  accounts: DemoAccount[];
+  onAddAccount: (a: Omit<DemoAccount, "id">) => void;
+  onUpdateAccount: (id: string, patch: Omit<DemoAccount, "id">) => void;
+  onRemoveAccount: (id: string) => void;
+  onLogout: () => void;
+}) {
   const [screen, setScreen] = useState<ScreenKey>("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
   const [account, setAccount] = useState<Reservation | null>(null);
@@ -142,6 +194,15 @@ function Workspace({ user, onLogout }: { user: StaffUser; onLogout: () => void }
           {screen === "hospedes" && <GuestsScreen />}
           {screen === "produtos" && <ProductsScreen />}
           {screen === "estoque" && <SupplyScreen />}
+          {screen === "colaboradores" && canAccessScreen(user, "colaboradores") && (
+            <StaffScreen
+              accounts={accounts}
+              currentUserId={user.id}
+              onAdd={onAddAccount}
+              onUpdate={onUpdateAccount}
+              onRemove={onRemoveAccount}
+            />
+          )}
           {screen === "financeiro" && canAccessScreen(user, "financeiro") && <FinanceScreen />}
         </main>
       </div>

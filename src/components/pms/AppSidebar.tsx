@@ -7,6 +7,7 @@ import {
   Plus,
   ShoppingBag,
   Boxes,
+  UserCog,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ export type ScreenKey =
   | "hospedes"
   | "produtos"
   | "estoque"
+  | "colaboradores"
   | "financeiro";
 
 const items: { key: ScreenKey; label: string; icon: typeof LayoutDashboard }[] = [
@@ -26,6 +28,7 @@ const items: { key: ScreenKey; label: string; icon: typeof LayoutDashboard }[] =
   { key: "hospedes", label: "Hóspedes (FNRH)", icon: Users },
   { key: "produtos", label: "Produtos & Preços", icon: ShoppingBag },
   { key: "estoque", label: "Estoque de Insumos", icon: Boxes },
+  { key: "colaboradores", label: "Colaboradores", icon: UserCog },
   { key: "financeiro", label: "Financeiro", icon: Wallet },
 ];
 

@@ -4,16 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { findAccount, type StaffUser } from "@/lib/auth";
+import { findAccount, type DemoAccount, type StaffUser } from "@/lib/auth";
 
-export function LoginScreen({ onLogin }: { onLogin: (user: StaffUser) => void }) {
+export function LoginScreen({
+  accounts,
+  onLogin,
+}: {
+  accounts: DemoAccount[];
+  onLogin: (user: StaffUser) => void;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const user = findAccount(email, password);
+    const user = findAccount(accounts, email, password);
     if (!user) {
       setError(true);
       toast.error("E-mail ou senha incorretos.");
@@ -71,8 +77,11 @@ export function LoginScreen({ onLogin }: { onLogin: (user: StaffUser) => void })
 
         <div className="rounded-xl border border-dashed border-border bg-muted/40 p-3 text-center text-xs text-muted-foreground">
           <p className="font-medium">Credenciais de demonstração</p>
-          <p className="mt-1">ana.paula@alameda.com · recepcao123</p>
-          <p>carlos.mendes@alameda.com · gerencia123</p>
+          {accounts.map((a) => (
+            <p key={a.id} className="mt-1 first:mt-1">
+              {a.email} · {a.password}
+            </p>
+          ))}
         </div>
       </div>
     </div>
