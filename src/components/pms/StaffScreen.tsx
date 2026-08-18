@@ -122,7 +122,7 @@ export function StaffScreen({
   onUpdate: (id: string, patch: Omit<DemoAccount, "id">) => void;
   onRemove: (id: string) => void;
 }) {
-  const { salaryPayments, addSalaryPayment } = usePms();
+  const { salaryPayments, addSalaryPayment, removeSalaryPayment } = usePms();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -164,8 +164,8 @@ export function StaffScreen({
     (a) => a.accessLevel === "gerencia" && a.active,
   ).length;
 
-  const isPaidThisMonth = (staffId: string) =>
-    salaryPayments.some((p) => p.staffId === staffId && p.month === currentMonth());
+  const paymentThisMonth = (staffId: string) =>
+    salaryPayments.find((p) => p.staffId === staffId && p.month === currentMonth());
 
   const openNew = () => {
     setEditingId(null);
@@ -293,6 +293,11 @@ export function StaffScreen({
     toast.success(`Salário de ${a.name} (${brl(amount)}) lançado no Financeiro.`);
   };
 
+  const undoPayment = (a: DemoAccount, paymentId: string) => {
+    removeSalaryPayment(paymentId);
+    toast.success(`Pagamento de ${a.name} desfeito — removido do Financeiro também.`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:justify-between">
@@ -332,7 +337,7 @@ export function StaffScreen({
               </tr>
             )}
             {filtered.map((a) => {
-              const paid = isPaidThisMonth(a.id);
+              const payment = paymentThisMonth(a.id);
               return (
                 <tr key={a.id} className={cn("hover:bg-muted/40", !a.active && "opacity-50")}>
                   <td className="px-4 py-3">
@@ -385,8 +390,18 @@ export function StaffScreen({
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {paid ? (
-                      <Badge className="bg-success/15 text-success">Pago</Badge>
+                    {payment ? (
+                      <div className="space-y-1.5">
+                        <Badge className="bg-success/15 text-success">Pago</Badge>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                          onClick={() => undoPayment(a, payment.id)}
+                        >
+                          Desfazer
+                        </Button>
+                      </div>
                     ) : (
                       <div className="space-y-1.5">
                         <Badge className="bg-warning/20 text-warning">Pendente</Badge>

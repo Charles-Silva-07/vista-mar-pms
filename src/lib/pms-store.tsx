@@ -91,6 +91,7 @@ export type SalaryPayment = {
   month: string; // "yyyy-mm"
   amount: number; // salário + benefícios do mês, somados
   date: string;
+  transactionId: string; // liga com o lançamento gerado no Financeiro, pra dar pra desfazer os dois juntos
 };
 
 export const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -484,6 +485,15 @@ const seedTransactions: Transaction[] = [
     type: "saida",
     status: "Pendente",
   },
+  {
+    id: "t9",
+    date: day(-10),
+    description: "Salário — Ana Paula (2026-08)",
+    category: "Salários",
+    amount: 1800 + 220 + 450,
+    type: "saida",
+    status: "Pago",
+  },
 ];
 
 // Exemplo: a Ana Paula (u1) já foi paga esse mês, o Carlos (u2) ainda não -
@@ -498,6 +508,7 @@ const seedSalaryPayments: SalaryPayment[] = [
     month: currentMonth(),
     amount: 1800 + 220 + 450,
     date: day(-10),
+    transactionId: "t9",
   },
 ];
 
@@ -576,13 +587,15 @@ function usePmsState() {
       },
       // Registra o pagamento do mês (salário + benefícios já somados) e
       // lança sozinho a despesa correspondente no Financeiro - mesmo
-      // princípio do addSupplyMovement acima.
-      addSalaryPayment: (p: Omit<SalaryPayment, "id">) => {
-        setSalaryPayments((prev) => [{ ...p, id: uid() }, ...prev]);
+      // princípio do addSupplyMovement acima. Os dois ficam ligados pelo
+      // transactionId, pra dar pra desfazer os dois juntos depois.
+      addSalaryPayment: (p: Omit<SalaryPayment, "id" | "transactionId">) => {
+        const transactionId = uid();
+        setSalaryPayments((prev) => [{ ...p, id: uid(), transactionId }, ...prev]);
         setTransactions((prev) => [
           ...prev,
           {
-            id: uid(),
+            id: transactionId,
             date: p.date,
             description: `Salário — ${p.staffName} (${p.month})`,
             category: "Salários",
@@ -591,6 +604,18 @@ function usePmsState() {
             status: "Pago",
           },
         ]);
+      },
+      // Desfaz um pagamento lançado errado: remove o registro e o lançamento
+      // correspondente no Financeiro juntos, pra não deixar o dinheiro
+      // "gasto" no fluxo de caixa sem o pagamento existir mais.
+      removeSalaryPayment: (paymentId: string) => {
+        setSalaryPayments((prev) => {
+          const payment = prev.find((p) => p.id === paymentId);
+          if (payment) {
+            setTransactions((tx) => tx.filter((t) => t.id !== payment.transactionId));
+          }
+          return prev.filter((p) => p.id !== paymentId);
+        });
       },
     }),
     [

@@ -1,12 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  Plus,
-  Scale,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Plus, Scale, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +28,7 @@ const categories = ["Energia/Água", "Lavanderia", "Insumos/Frigobar", "Salário
 const ALL_CATEGORIES = "__todas__";
 
 export function FinanceScreen({ accounts }: { accounts: DemoAccount[] }) {
-  const { transactions, addTransaction, salaryPayments, addSalaryPayment } = usePms();
+  const { transactions, addTransaction, salaryPayments } = usePms();
   const [open, setOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
   const [form, setForm] = useState({
@@ -61,18 +54,6 @@ export function FinanceScreen({ accounts }: { accounts: DemoAccount[] }) {
     .filter((a) => isPaidThisMonth(a.id))
     .reduce((s, a) => s + staffMonthlyCost(a), 0);
   const payrollRemaining = Math.max(0, payrollTotal - payrollPaid);
-
-  const markStaffPaid = (a: DemoAccount) => {
-    const amount = staffMonthlyCost(a);
-    addSalaryPayment({
-      staffId: a.id,
-      staffName: a.name,
-      month: currentMonth(),
-      amount,
-      date: day(0),
-    });
-    toast.success(`Salário de ${a.name} (${brl(amount)}) lançado no fluxo de caixa.`);
-  };
 
   const chartData = useMemo(() => {
     const map = new Map<string, { dia: string; Entradas: number; Saídas: number }>();
@@ -189,22 +170,17 @@ export function FinanceScreen({ accounts }: { accounts: DemoAccount[] }) {
                     {a.role} · {brl(staffMonthlyCost(a))}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {paid ? (
-                    <Badge className="bg-success/15 text-success">Pago</Badge>
-                  ) : (
-                    <>
-                      <Badge className="bg-warning/20 text-warning">Pendente</Badge>
-                      <Button size="sm" variant="outline" onClick={() => markStaffPaid(a)}>
-                        <Wallet className="size-3.5" /> Marcar pago
-                      </Button>
-                    </>
-                  )}
-                </div>
+                <Badge className={paid ? "bg-success/15 text-success" : "bg-warning/20 text-warning"}>
+                  {paid ? "Pago" : "Pendente"}
+                </Badge>
               </li>
             );
           })}
         </ul>
+        <p className="border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
+          Só visualização aqui. Pra marcar ou desfazer um pagamento, use a tela{" "}
+          <span className="font-medium text-foreground">Colaboradores</span>.
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
