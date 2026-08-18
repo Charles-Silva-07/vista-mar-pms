@@ -9,7 +9,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { StaffUser } from "@/lib/auth";
+import { canAccessScreen, type StaffUser } from "@/lib/auth";
 
 export type ScreenKey = "dashboard" | "mapa" | "hospedes" | "produtos" | "financeiro";
 
@@ -68,7 +68,9 @@ export function AppSidebar({
       </div>
 
       <nav className="flex-1 space-y-1 px-3 pb-3">
-        {items.map((item) => (
+        {items
+          .filter((item) => canAccessScreen(user, item.key))
+          .map((item) => (
           <button
             key={item.key}
             onClick={() => onNavigate(item.key)}

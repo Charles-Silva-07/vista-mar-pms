@@ -11,7 +11,7 @@ import { FinanceScreen } from "@/components/pms/FinanceScreen";
 import { AccountModal } from "@/components/pms/AccountModal";
 import { ReservationModal } from "@/components/pms/ReservationModal";
 import { PmsProvider, type Reservation } from "@/lib/pms-store";
-import { clearSavedUser, loadSavedUser, saveUser, type StaffUser } from "@/lib/auth";
+import { canAccessScreen, clearSavedUser, loadSavedUser, saveUser, type StaffUser } from "@/lib/auth";
 
 const titles: Record<ScreenKey, { title: string; subtitle: string }> = {
   dashboard: { title: "Visão Geral", subtitle: "Resumo operacional da pousada hoje" },
@@ -61,6 +61,9 @@ function Workspace({ user, onLogout }: { user: StaffUser; onLogout: () => void }
   });
 
   const go = (k: ScreenKey) => {
+    // Defesa extra: mesmo que algo tente navegar direto pra uma tela restrita
+    // (sem passar pelo clique no item da sidebar, que já vem filtrado), barra aqui.
+    if (!canAccessScreen(user, k)) return;
     setScreen(k);
     setMenuOpen(false);
   };
@@ -136,7 +139,7 @@ function Workspace({ user, onLogout }: { user: StaffUser; onLogout: () => void }
           )}
           {screen === "hospedes" && <GuestsScreen />}
           {screen === "produtos" && <ProductsScreen />}
-          {screen === "financeiro" && <FinanceScreen />}
+          {screen === "financeiro" && canAccessScreen(user, "financeiro") && <FinanceScreen />}
         </main>
       </div>
 
