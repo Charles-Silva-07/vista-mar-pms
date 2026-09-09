@@ -35,8 +35,9 @@ import { toast } from "sonner";
 import {
   shiftPeriodLabels,
   type AccessLevel,
-  type DemoAccount,
   type ShiftPeriod,
+  type StaffInput,
+  type StaffUser,
 } from "@/lib/auth";
 import { brl, currentMonth, day, usePms } from "@/lib/pms-store";
 import { cn } from "@/lib/utils";
@@ -116,11 +117,11 @@ export function StaffScreen({
   onUpdate,
   onRemove,
 }: {
-  accounts: DemoAccount[];
+  accounts: StaffUser[];
   currentUserId: string;
-  onAdd: (a: Omit<DemoAccount, "id">) => void;
-  onUpdate: (id: string, patch: Omit<DemoAccount, "id">) => void;
-  onRemove: (id: string) => void;
+  onAdd: (a: StaffInput) => Promise<void>;
+  onUpdate: (id: string, patch: StaffInput) => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
 }) {
   const { salaryPayments, addSalaryPayment, removeSalaryPayment } = usePms();
   const [query, setQuery] = useState("");
@@ -173,7 +174,7 @@ export function StaffScreen({
     setOpen(true);
   };
 
-  const openEdit = (a: DemoAccount) => {
+  const openEdit = (a: StaffUser) => {
     setEditingId(a.id);
     setForm({
       name: a.name,
@@ -185,7 +186,9 @@ export function StaffScreen({
       shiftPeriod: a.shiftPeriod,
       admissionDate: a.admissionDate,
       email: a.email,
-      password: a.password,
+      // Vazio = mantém a senha atual (o backend nunca devolve a senha de
+      // volta) - só preenche se quem está editando digitar uma nova.
+      password: "",
       accessLevel: a.accessLevel,
       salary: String(a.salary),
       transportBenefit: a.transportBenefit,
@@ -196,15 +199,19 @@ export function StaffScreen({
     setOpen(true);
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (
       !form.name.trim() ||
       !form.role.trim() ||
       !form.email.trim() ||
-      !form.password.trim() ||
-      !form.document.trim()
+      !form.document.trim() ||
+      (!editingId && !form.password.trim())
     ) {
-      toast.error("Preencha nome, CPF, cargo, e-mail e senha.");
+      toast.error(
+        editingId
+          ? "Preencha nome, CPF, cargo e e-mail."
+          : "Preencha nome, CPF, cargo, e-mail e senha.",
+      );
       return;
     }
     const emailTaken = accounts.some(
@@ -221,7 +228,7 @@ export function StaffScreen({
       toast.error("Esse é o único colaborador ativo com Gerência — mantenha ao menos um.");
       return;
     }
-    const payload = {
+    const payload: StaffInput = {
       name: form.name.trim(),
       document: form.document.trim(),
       phone: form.phone.trim(),
@@ -231,7 +238,8 @@ export function StaffScreen({
       shiftPeriod: form.shiftPeriod,
       admissionDate: form.admissionDate || day(0),
       email: form.email.trim(),
-      password: form.password,
+      // Vazio ao editar = mantém a senha atual (ver StaffWriteSerializer no backend).
+      ...(form.password.trim() && { password: form.password }),
       accessLevel: form.accessLevel,
       active: current?.active ?? true,
       salary: Number(form.salary.replace(",", ".")) || 0,
@@ -244,17 +252,21 @@ export function StaffScreen({
         ? Number(form.mealBenefitAmount.replace(",", ".")) || 0
         : 0,
     };
-    if (editingId) {
-      onUpdate(editingId, payload);
-      toast.success("Colaborador atualizado.");
-    } else {
-      onAdd(payload);
-      toast.success(`${payload.name} cadastrado(a) — já pode fazer login.`);
+    try {
+      if (editingId) {
+        await onUpdate(editingId, payload);
+        toast.success("Colaborador atualizado.");
+      } else {
+        await onAdd(payload);
+        toast.success(`${payload.name} cadastrado(a) — já pode fazer login.`);
+      }
+      setOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar o colaborador.");
     }
-    setOpen(false);
   };
 
-  const toggleActive = (a: DemoAccount) => {
+  const toggleActive = async (a: StaffUser) => {
     if (a.id === currentUserId) {
       toast.error("Você não pode desativar o próprio usuário logado.");
       return;
@@ -263,12 +275,16 @@ export function StaffScreen({
       toast.error("Esse é o único colaborador ativo com Gerência — mantenha ao menos um.");
       return;
     }
-    const { password: _password, id: _id, ...rest } = a;
-    onUpdate(a.id, { ...rest, password: a.password, active: !a.active });
-    toast.success(a.active ? `${a.name} desativado(a) — não consegue mais logar.` : `${a.name} reativado(a).`);
+    const { id: _id, ...rest } = a;
+    try {
+      await onUpdate(a.id, { ...rest, active: !a.active });
+      toast.success(a.active ? `${a.name} desativado(a) — não consegue mais logar.` : `${a.name} reativado(a).`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar.");
+    }
   };
 
-  const remove = (a: DemoAccount) => {
+  const remove = async (a: StaffUser) => {
     if (a.id === currentUserId) {
       toast.error("Você não pode excluir o próprio usuário logado.");
       return;
@@ -277,11 +293,15 @@ export function StaffScreen({
       toast.error("Esse é o único colaborador ativo com Gerência — mantenha ao menos um.");
       return;
     }
-    onRemove(a.id);
-    toast.success(`${a.name} removido(a).`);
+    try {
+      await onRemove(a.id);
+      toast.success(`${a.name} removido(a).`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível excluir.");
+    }
   };
 
-  const markPaid = (a: DemoAccount) => {
+  const markPaid = (a: StaffUser) => {
     const amount = a.salary + (a.transportBenefit ? a.transportBenefitAmount : 0) + (a.mealBenefit ? a.mealBenefitAmount : 0);
     addSalaryPayment({
       staffId: a.id,
@@ -293,7 +313,7 @@ export function StaffScreen({
     toast.success(`Salário de ${a.name} (${brl(amount)}) lançado no Financeiro.`);
   };
 
-  const undoPayment = (a: DemoAccount, paymentId: string) => {
+  const undoPayment = (a: StaffUser, paymentId: string) => {
     removeSalaryPayment(paymentId);
     toast.success(`Pagamento de ${a.name} desfeito — removido do Financeiro também.`);
   };

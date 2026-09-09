@@ -1,8 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Evita que o Chrome ofereça/ative a tradução automática da página.
+         Quando o Google Translate traduz, ele reescreve nós do DOM por fora
+         do React; ao reabrir um <Select> o React tenta atualizar esses nós
+         e quebra com "Algo deu errado". Ver: origem deste bug reportado
+         quando a tradução automática estava ativa. -->
+    <meta name="google" content="notranslate" />
     <title>Alameda Pousada — PMS &amp; Financeiro</title>
     <meta
       name="description"
@@ -24,7 +30,7 @@
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
     />
   </head>
-  <body>
+  <body class="notranslate" translate="no">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

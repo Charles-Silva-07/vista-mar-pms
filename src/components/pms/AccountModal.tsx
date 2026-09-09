@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Receipt } from "lucide-react";
+import { Plus, Receipt, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { QuantityInput } from "@/components/pms/QuantityInput";
-import { brl, day, usePms, type Reservation } from "@/lib/pms-store";
+import { ReceiptModal, type ReceiptData } from "@/components/pms/ReceiptModal";
+import { brl, day, isLowStock, usePms, type Reservation } from "@/lib/pms-store";
 import { cn } from "@/lib/utils";
 
 const methods = ["Pix", "Cartão de Crédito", "Dinheiro"];
@@ -35,24 +36,37 @@ export function AccountModal({
   const {
     rooms,
     products,
+    supplies,
     consumptions,
     addConsumption,
+    removeConsumption,
     addTransaction,
     updateReservationStatus,
     updateReservationPayment,
   } = usePms();
+  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [method, setMethod] = useState("Pix");
   const [productId, setProductId] = useState<string>(products[0]?.id ?? CUSTOM_ITEM);
   const [customName, setCustomName] = useState("");
   const [customPrice, setCustomPrice] = useState("");
   const [qty, setQty] = useState("1");
 
-  if (!reservation) return null;
+  // Não retorna cedo aqui: mesmo com reservation null (extrato fechado logo
+  // após o check-out), o ReceiptModal no fim do JSX precisa continuar
+  // renderizando o recibo que acabou de ser gerado.
+  if (!reservation) {
+    return <ReceiptModal receipt={receipt} onOpenChange={(o) => !o && setReceipt(null)} />;
+  }
   const room = rooms.find((r) => r.id === reservation.roomId);
   const items = consumptions.filter((c) => c.reservationId === reservation.id);
   const lodging = reservation.nights * reservation.rate;
   const extras = items.reduce((sum, i) => sum + i.qty * i.unitPrice, 0);
   const total = lodging + extras;
+  // Valor já recebido antes do check-out (sinal/entrada) precisa ser abatido
+  // do total, senão o extrato cobra o hóspede de novo e o financeiro conta
+  // essa receita duas vezes.
+  const alreadyPaid = Math.min(reservation.amountPaid, total);
+  const remaining = Math.max(0, total - alreadyPaid);
 
   const selectedProduct = products.find((p) => p.id === productId);
   const isCustom = productId === CUSTOM_ITEM || !selectedProduct;
@@ -60,39 +74,89 @@ export function AccountModal({
   const addItem = () => {
     const name = isCustom ? customName.trim() : selectedProduct!.name;
     const unitPrice = isCustom ? Number(customPrice.replace(",", ".")) : selectedProduct!.price;
+    const qtyNum = Number(qty) || 1;
     if (!name || !unitPrice) {
       toast.error("Informe o produto e o valor unitário.");
       return;
     }
+
+    // Se o item vendido tem vínculo com estoque, confere se tem quantidade
+    // suficiente antes de vender - evita vender frigobar/produto que já
+    // acabou sem o funcionário perceber.
+    let stockUsage: { supplyId: string; supplyQty: number } | undefined;
+    if (!isCustom && selectedProduct?.supplyId) {
+      const supply = supplies.find((s) => s.id === selectedProduct.supplyId);
+      const supplyQty = (selectedProduct.qtyPerSale ?? 1) * qtyNum;
+      if (supply && supply.quantity < supplyQty) {
+        toast.error(
+          `Estoque insuficiente de "${supply.name}": disponível ${supply.quantity} ${supply.unit}, necessário ${supplyQty}.`,
+        );
+        return;
+      }
+      stockUsage = { supplyId: selectedProduct.supplyId, supplyQty };
+    }
+
     addConsumption({
       reservationId: reservation.id,
       name,
-      qty: Number(qty) || 1,
+      qty: qtyNum,
       unitPrice,
+      ...stockUsage,
     });
     setCustomName("");
     setCustomPrice("");
     setQty("1");
     toast.success("Consumo lançado no extrato.");
+
+    if (stockUsage) {
+      const supply = supplies.find((s) => s.id === stockUsage!.supplyId);
+      if (supply) {
+        const remainingStock = supply.quantity - stockUsage.supplyQty;
+        if (isLowStock({ ...supply, quantity: remainingStock })) {
+          toast.warning(`Estoque de "${supply.name}" ficou baixo (${remainingStock} ${supply.unit}).`);
+        }
+      }
+    }
   };
 
   const checkout = () => {
-    addTransaction({
-      date: day(0),
-      description: `Check-out — Quarto ${room?.number} (${reservation.guestName}) via ${method}`,
-      category: "Hospedagem",
-      amount: total,
-      type: "entrada",
-      status: "Pago",
-    });
+    // Só lança no financeiro o saldo que está sendo recebido agora no
+    // check-out. O que já tinha sido pago antes (sinal/entrada) já entrou
+    // como receita na hora em que foi registrado — lançar o total de novo
+    // aqui duplicaria a receita do dia.
+    if (remaining > 0) {
+      addTransaction({
+        date: day(0),
+        description: `Check-out — Quarto ${room?.number} (${reservation.guestName}) via ${method}`,
+        category: "Hospedagem",
+        amount: remaining,
+        type: "entrada",
+        status: "Pago",
+      });
+    }
     updateReservationStatus(reservation.id, "finalizada");
-    updateReservationPayment(reservation.id, lodging);
+    updateReservationPayment(reservation.id, total);
     toast.success(`Check-out concluído. Recibo de ${brl(total)} emitido.`);
+    // Snapshot dos dados no momento do check-out - depois disso a reserva
+    // muda de status e vira histórico, então o recibo não pode depender do
+    // estado ao vivo da reserva/extrato.
+    setReceipt({
+      guestName: reservation.guestName,
+      roomNumber: room?.number ?? "",
+      roomCategory: room?.category ?? "",
+      nights: reservation.nights,
+      rate: reservation.rate,
+      checkoutDate: day(0),
+      items,
+      method,
+      total,
+    });
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={!!reservation} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -123,11 +187,24 @@ export function AccountModal({
                 <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum consumo lançado.</li>
               )}
               {items.map((i) => (
-                <li key={i.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                <li key={i.id} className="flex items-center justify-between gap-2 px-4 py-2.5 text-sm">
                   <span className="min-w-0 truncate">
                     {i.qty}x {i.name}
                   </span>
-                  <span className="shrink-0 font-medium">{brl(i.qty * i.unitPrice)}</span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="font-medium">{brl(i.qty * i.unitPrice)}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        removeConsumption(i.id);
+                        toast.success(`"${i.name}" removido do extrato.`);
+                      }}
+                      className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={`Remover ${i.name} do extrato`}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -143,11 +220,15 @@ export function AccountModal({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {products.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name} — {brl(p.price)}
-                      </SelectItem>
-                    ))}
+                    {products.map((p) => {
+                      const supply = p.supplyId ? supplies.find((s) => s.id === p.supplyId) : undefined;
+                      return (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} — {brl(p.price)}
+                          {supply ? ` (estoque: ${supply.quantity} ${supply.unit})` : ""}
+                        </SelectItem>
+                      );
+                    })}
                     <SelectItem value={CUSTOM_ITEM}>Outro (avulso)</SelectItem>
                   </SelectContent>
                 </Select>
@@ -182,9 +263,22 @@ export function AccountModal({
             </Button>
           </div>
 
+          <div className="space-y-2 rounded-xl border border-border bg-card p-4 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Total da estadia</span>
+              <span className="font-semibold">{brl(total)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Já pago (sinal/entrada)</span>
+              <span className="font-semibold text-success">- {brl(alreadyPaid)}</span>
+            </div>
+          </div>
+
           <div className="flex items-center justify-between rounded-xl bg-primary px-4 py-3 text-primary-foreground">
-            <span className="text-sm font-medium">Total geral</span>
-            <span className="text-xl font-bold">{brl(total)}</span>
+            <span className="text-sm font-medium">
+              {remaining > 0 ? "Saldo a pagar agora" : "Total geral (já quitado)"}
+            </span>
+            <span className="text-xl font-bold">{brl(remaining)}</span>
           </div>
 
           <div>
@@ -211,10 +305,14 @@ export function AccountModal({
             onClick={checkout}
             className="h-11 w-full bg-success text-success-foreground hover:bg-success/90"
           >
-            Concluir Check-out e Emitir Recibo
+            {remaining > 0
+              ? `Receber ${brl(remaining)} e Concluir Check-out`
+              : "Concluir Check-out e Emitir Recibo"}
           </Button>
         </div>
       </DialogContent>
     </Dialog>
+    <ReceiptModal receipt={receipt} onOpenChange={(o) => !o && setReceipt(null)} />
+    </>
   );
 }

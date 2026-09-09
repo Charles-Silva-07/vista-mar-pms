@@ -1,6 +1,18 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+
+import {
+  createReservation as apiCreateReservation,
+  createRoom as apiCreateRoom,
+  fetchReservations,
+  fetchRooms,
+  patchReservation,
+} from "./api";
 
 export type ReservationStatus = "confirmada" | "andamento" | "finalizada" | "cancelada";
+
+export type ReservationOrigin = "Booking" | "Airbnb" | "Direto" | "Outro";
+
+export const reservationOrigins: ReservationOrigin[] = ["Direto", "Booking", "Airbnb", "Outro"];
 
 export type Room = { id: string; number: string; category: string; rate: number };
 
@@ -33,6 +45,7 @@ export type Reservation = {
   eta: string;
   nights: number;
   rate: number;
+  origin: ReservationOrigin;
 };
 
 export type ConsumptionItem = {
@@ -41,6 +54,13 @@ export type ConsumptionItem = {
   name: string;
   qty: number;
   unitPrice: number;
+  // Snapshot do insumo baixado do estoque no momento da venda (se o produto
+  // tinha vínculo com estoque). Guardamos aqui, e não só no Product, porque o
+  // catálogo pode mudar depois - se o vínculo mudar ou o produto for
+  // excluído, ainda precisamos saber exatamente o que devolver ao estoque
+  // caso esse consumo seja removido do extrato por engano.
+  supplyId?: string;
+  supplyQty?: number;
 };
 
 export type ProductCategory = "Bebidas" | "Alimentos" | "Serviços";
@@ -50,13 +70,32 @@ export type Product = {
   name: string;
   category: ProductCategory;
   price: number;
+  // Vínculo opcional com o estoque de insumos: ao vender este item no
+  // extrato do hóspede, dá baixa automática em supplyId, na quantidade
+  // qtyPerSale (padrão 1 unidade de estoque por venda). Deixe sem vínculo
+  // para itens que não controlam estoque próprio (ex.: "Serviços").
+  supplyId?: string;
+  qtyPerSale?: number;
 };
 
 export const productCategories: ProductCategory[] = ["Bebidas", "Alimentos", "Serviços"];
 
+// Categoria é texto livre (não um union fixo) porque o usuário pode criar e
+// renomear grupos pela própria tela de Estoque — ver addSupplyCategory /
+// renameSupplyCategory mais abaixo.
+export type SupplyCategory = string;
+
+const seedSupplyCategories: SupplyCategory[] = [
+  "Governança e Quartos",
+  "Alimentos e Bebidas",
+  "Limpeza e Higiene",
+  "Outros",
+];
+
 export type SupplyItem = {
   id: string;
   name: string;
+  category: SupplyCategory;
   unit: string; // un, L, kg, rolo, pacote...
   quantity: number;
   minQuantity: number; // dispara o alerta de estoque baixo
@@ -104,7 +143,10 @@ export const day = (offset: number) => {
 export const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 export const formatDate = (s: string) => s.split("-").reverse().slice(0, 2).join("/");
 
-const rooms: Room[] = [
+// Usado só como fallback (estado inicial antes da API responder, ou se o
+// backend estiver fora do ar) — a fonte de verdade agora é o Django
+// (/api/rooms/), ver fetchRooms em lib/api.ts.
+const seedRooms: Room[] = [
   { id: "101", number: "101", category: "Suíte Luxo", rate: 620 },
   { id: "102", number: "102", category: "Standard Casal", rate: 380 },
   { id: "103", number: "103", category: "Standard Duplo", rate: 340 },
@@ -196,6 +238,7 @@ const seedReservations: Reservation[] = [
     eta: "14:00",
     nights: 4,
     rate: 620,
+    origin: "Direto",
   },
   {
     id: "r2",
@@ -209,6 +252,7 @@ const seedReservations: Reservation[] = [
     eta: "15:30",
     nights: 2,
     rate: 380,
+    origin: "Booking",
   },
   {
     id: "r3",
@@ -222,6 +266,7 @@ const seedReservations: Reservation[] = [
     eta: "13:00",
     nights: 5,
     rate: 850,
+    origin: "Airbnb",
   },
   {
     id: "r4",
@@ -235,6 +280,7 @@ const seedReservations: Reservation[] = [
     eta: "18:40",
     nights: 3,
     rate: 520,
+    origin: "Direto",
   },
   {
     id: "r5",
@@ -248,6 +294,7 @@ const seedReservations: Reservation[] = [
     eta: "12:00",
     nights: 4,
     rate: 780,
+    origin: "Booking",
   },
   {
     id: "r6",
@@ -260,6 +307,7 @@ const seedReservations: Reservation[] = [
     eta: "16:00",
     nights: 3,
     rate: 380,
+    origin: "Airbnb",
   },
   {
     id: "r7",
@@ -272,6 +320,7 @@ const seedReservations: Reservation[] = [
     eta: "20:00",
     nights: 3,
     rate: 260,
+    origin: "Direto",
   },
   {
     id: "r8",
@@ -284,6 +333,7 @@ const seedReservations: Reservation[] = [
     eta: "11:00",
     nights: 3,
     rate: 340,
+    origin: "Direto",
   },
   // Reservas de alta temporada (Romaria de Juazeiro do Norte, setembro) —
   // demonstram o filtro de mês e os 3 níveis de pagamento de uma vez.
@@ -298,6 +348,7 @@ const seedReservations: Reservation[] = [
     eta: "10:00",
     nights: 5,
     rate: 620,
+    origin: "Direto",
   },
   {
     id: "r10",
@@ -310,6 +361,7 @@ const seedReservations: Reservation[] = [
     eta: "09:30",
     nights: 5,
     rate: 380,
+    origin: "Booking",
   },
   {
     id: "r11",
@@ -322,14 +374,19 @@ const seedReservations: Reservation[] = [
     eta: "17:00",
     nights: 3,
     rate: 520,
+    origin: "Direto",
   },
 ];
 
 const seedProducts: Product[] = [
-  { id: "p1", name: "Água mineral 500ml", category: "Bebidas", price: 7 },
-  { id: "p2", name: "Água de coco", category: "Bebidas", price: 10 },
-  { id: "p3", name: "Refrigerante lata", category: "Bebidas", price: 9 },
-  { id: "p4", name: "Cerveja artesanal", category: "Bebidas", price: 18 },
+  // Exemplo de vínculo com estoque: cada venda deste item baixa 1 unidade
+  // do insumo "s8" (Água mineral - galão). Os demais itens do catálogo
+  // ficam sem vínculo por padrão; cadastre o vínculo na tela Produtos &
+  // Preços quando o insumo correspondente existir no estoque.
+  { id: "p1", name: "Água mineral 500ml", category: "Bebidas", price: 7, supplyId: "s8", qtyPerSale: 1 },
+  { id: "p2", name: "Água de coco", category: "Bebidas", price: 10, supplyId: "s9", qtyPerSale: 1 },
+  { id: "p3", name: "Refrigerante lata", category: "Bebidas", price: 9, supplyId: "s10", qtyPerSale: 1 },
+  { id: "p4", name: "Cerveja artesanal", category: "Bebidas", price: 18, supplyId: "s11", qtyPerSale: 1 },
   { id: "p5", name: "Salgado assado", category: "Alimentos", price: 12 },
   { id: "p6", name: "Porção de batata frita", category: "Alimentos", price: 28 },
   { id: "p7", name: "Sanduíche natural", category: "Alimentos", price: 22 },
@@ -348,14 +405,17 @@ const seedConsumptions: ConsumptionItem[] = [
 ];
 
 const seedSupplies: SupplyItem[] = [
-  { id: "s1", name: "Papel higiênico", unit: "rolo", quantity: 18, minQuantity: 24 },
-  { id: "s2", name: "Sabonete", unit: "un", quantity: 40, minQuantity: 30 },
-  { id: "s3", name: "Detergente", unit: "L", quantity: 3, minQuantity: 5 },
-  { id: "s4", name: "Café em pó", unit: "kg", quantity: 6, minQuantity: 4 },
-  { id: "s5", name: "Açúcar", unit: "kg", quantity: 8, minQuantity: 5 },
-  { id: "s6", name: "Álcool em gel", unit: "L", quantity: 2, minQuantity: 6 },
-  { id: "s7", name: "Toalha de banho", unit: "un", quantity: 35, minQuantity: 20 },
-  { id: "s8", name: "Água mineral (galão)", unit: "un", quantity: 4, minQuantity: 6 },
+  { id: "s1", name: "Papel higiênico", category: "Governança e Quartos", unit: "rolo", quantity: 18, minQuantity: 24 },
+  { id: "s2", name: "Sabonete", category: "Governança e Quartos", unit: "un", quantity: 40, minQuantity: 30 },
+  { id: "s7", name: "Toalha de banho", category: "Governança e Quartos", unit: "un", quantity: 35, minQuantity: 20 },
+  { id: "s4", name: "Café em pó", category: "Alimentos e Bebidas", unit: "kg", quantity: 6, minQuantity: 4 },
+  { id: "s5", name: "Açúcar", category: "Alimentos e Bebidas", unit: "kg", quantity: 8, minQuantity: 5 },
+  { id: "s8", name: "Água mineral (galão)", category: "Alimentos e Bebidas", unit: "un", quantity: 4, minQuantity: 6 },
+  { id: "s9", name: "Água de coco (unidade)", category: "Alimentos e Bebidas", unit: "un", quantity: 20, minQuantity: 12 },
+  { id: "s10", name: "Refrigerante lata", category: "Alimentos e Bebidas", unit: "un", quantity: 30, minQuantity: 18 },
+  { id: "s11", name: "Cerveja artesanal", category: "Alimentos e Bebidas", unit: "un", quantity: 15, minQuantity: 12 },
+  { id: "s3", name: "Detergente", category: "Limpeza e Higiene", unit: "L", quantity: 3, minQuantity: 5 },
+  { id: "s6", name: "Álcool em gel", category: "Limpeza e Higiene", unit: "L", quantity: 2, minQuantity: 6 },
 ];
 
 const seedSupplyMovements: SupplyMovement[] = [
@@ -515,12 +575,62 @@ const seedSalaryPayments: SalaryPayment[] = [
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 function usePmsState() {
-  const [guests, setGuests] = useState<Guest[]>(seedGuests);
+  const [rooms, setRooms] = useState<Room[]>(seedRooms);
+  const [roomsLoading, setRoomsLoading] = useState(true);
+  const [roomsError, setRoomsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchRooms()
+      .then((data) => {
+        if (!cancelled) setRooms(data);
+      })
+      .catch((err) => {
+        // Mantém seedRooms na tela e só reporta o erro — não trava o app se
+        // o backend estiver fora do ar durante a transição.
+        console.error("Não consegui buscar quartos do backend, usando dados locais:", err);
+        if (!cancelled) setRoomsError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (!cancelled) setRoomsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [reservations, setReservations] = useState<Reservation[]>(seedReservations);
+  const [reservationsLoading, setReservationsLoading] = useState(true);
+  const [reservationsError, setReservationsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchReservations()
+      .then((data) => {
+        if (!cancelled) setReservations(data);
+      })
+      .catch((err) => {
+        console.error(
+          "Não consegui buscar reservas do backend, usando dados locais:",
+          err,
+        );
+        if (!cancelled) setReservationsError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (!cancelled) setReservationsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const [guests, setGuests] = useState<Guest[]>(seedGuests);
   const [consumptions, setConsumptions] = useState<ConsumptionItem[]>(seedConsumptions);
   const [transactions, setTransactions] = useState<Transaction[]>(seedTransactions);
   const [products, setProducts] = useState<Product[]>(seedProducts);
   const [supplies, setSupplies] = useState<SupplyItem[]>(seedSupplies);
+  const [supplyCategories, setSupplyCategories] =
+    useState<SupplyCategory[]>(seedSupplyCategories);
   const [supplyMovements, setSupplyMovements] =
     useState<SupplyMovement[]>(seedSupplyMovements);
   const [salaryPayments, setSalaryPayments] =
@@ -529,26 +639,110 @@ function usePmsState() {
   return useMemo(
     () => ({
       rooms,
+      roomsLoading,
+      roomsError,
+      addRoom: async (room: Omit<Room, "id">) => {
+        const created = await apiCreateRoom(room);
+        setRooms((prev) => [...prev, created]);
+        return created;
+      },
       guests,
       reservations,
+      reservationsLoading,
+      reservationsError,
       consumptions,
       transactions,
       products,
       supplies,
+      supplyCategories,
       supplyMovements,
       salaryPayments,
       addGuest: (g: Omit<Guest, "id" | "stays">) =>
         setGuests((prev) => [{ ...g, id: uid(), stays: 0 }, ...prev]),
-      addReservation: (r: Omit<Reservation, "id">) =>
-        setReservations((prev) => [...prev, { ...r, id: uid() }]),
-      updateReservationStatus: (id: string, status: ReservationStatus) =>
-        setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r))),
-      updateReservationPayment: (id: string, amountPaid: number) =>
+      addReservation: async (r: Omit<Reservation, "id">) => {
+        const created = await apiCreateReservation(r);
+        setReservations((prev) => [...prev, created]);
+        return created;
+      },
+      updateReservationStatus: async (id: string, status: ReservationStatus) => {
+        // Otimista: atualiza a tela na hora, e reconcilia com a resposta
+        // real da API (ou desfaz, se a chamada falhar).
+        const previous = reservations;
+        setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+        try {
+          const updated = await patchReservation(id, { status });
+          setReservations((prev) => prev.map((r) => (r.id === id ? updated : r)));
+        } catch (err) {
+          console.error("Não consegui atualizar o status da reserva no backend:", err);
+          setReservations(previous);
+        }
+      },
+      updateReservationPayment: async (id: string, amountPaid: number) => {
+        const previous = reservations;
+        const safeAmount = Math.max(0, amountPaid);
         setReservations((prev) =>
-          prev.map((r) => (r.id === id ? { ...r, amountPaid: Math.max(0, amountPaid) } : r)),
-        ),
-      addConsumption: (item: Omit<ConsumptionItem, "id">) =>
-        setConsumptions((prev) => [...prev, { ...item, id: uid() }]),
+          prev.map((r) => (r.id === id ? { ...r, amountPaid: safeAmount } : r)),
+        );
+        try {
+          const updated = await patchReservation(id, { amountPaid: safeAmount });
+          setReservations((prev) => prev.map((r) => (r.id === id ? updated : r)));
+        } catch (err) {
+          console.error("Não consegui atualizar o pagamento da reserva no backend:", err);
+          setReservations(previous);
+        }
+      },
+      // Lança o consumo no extrato do hóspede e, se o item vendido tem
+      // vínculo com um insumo do estoque, já dá baixa automática na mesma
+      // hora - sem isso, o sistema venderia frigobar/produtos pra sempre sem
+      // nunca acusar falta de estoque real.
+      addConsumption: (item: Omit<ConsumptionItem, "id">) => {
+        setConsumptions((prev) => [...prev, { ...item, id: uid() }]);
+        if (item.supplyId && item.supplyQty) {
+          const supplyId = item.supplyId;
+          const supplyQty = item.supplyQty;
+          setSupplyMovements((prev) => [
+            {
+              id: uid(),
+              supplyId,
+              type: "saida",
+              quantity: supplyQty,
+              date: day(0),
+              note: `Venda no extrato — ${item.name}`,
+            },
+            ...prev,
+          ]);
+          setSupplies((prev) =>
+            prev.map((s) => (s.id === supplyId ? { ...s, quantity: Math.max(0, s.quantity - supplyQty) } : s)),
+          );
+        }
+      },
+      // Remove o item do extrato e, se ele tinha baixado estoque na hora da
+      // venda, devolve a quantidade certinho - senão excluir um lançamento
+      // errado deixaria o estoque faltando sem motivo real.
+      removeConsumption: (id: string) => {
+        setConsumptions((prev) => {
+          const item = prev.find((c) => c.id === id);
+          if (item?.supplyId && item.supplyQty) {
+            const supplyId = item.supplyId;
+            const supplyQty = item.supplyQty;
+            setSupplyMovements((sm) => [
+              {
+                id: uid(),
+                supplyId,
+                type: "entrada",
+                quantity: supplyQty,
+                date: day(0),
+                note: `Estorno — item removido do extrato (${item.name})`,
+              },
+              ...sm,
+            ]);
+            setSupplies((sp) =>
+              sp.map((s) => (s.id === supplyId ? { ...s, quantity: s.quantity + supplyQty } : s)),
+            );
+          }
+          return prev.filter((c) => c.id !== id);
+        });
+      },
       addTransaction: (t: Omit<Transaction, "id">) =>
         setTransactions((prev) => [...prev, { ...t, id: uid() }]),
       addProduct: (p: Omit<Product, "id">) =>
@@ -556,6 +750,44 @@ function usePmsState() {
       removeProduct: (id: string) => setProducts((prev) => prev.filter((p) => p.id !== id)),
       addSupply: (s: Omit<SupplyItem, "id">) =>
         setSupplies((prev) => [{ ...s, id: uid() }, ...prev]),
+      // Cria um grupo/categoria novo pra organizar o estoque. Ignora se já
+      // existir um com o mesmo nome (case-insensitive), pra não duplicar
+      // "Bebidas" e "bebidas" como grupos diferentes.
+      addSupplyCategory: (name: string) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        setSupplyCategories((prev) =>
+          prev.some((c) => c.toLowerCase() === trimmed.toLowerCase()) ? prev : [...prev, trimmed],
+        );
+      },
+      // Renomeia um grupo e atualiza todos os insumos que pertenciam a ele,
+      // senão os itens ficariam presos no nome antigo (categoria "fantasma").
+      renameSupplyCategory: (oldName: string, newName: string) => {
+        const trimmed = newName.trim();
+        if (!trimmed || trimmed === oldName) return;
+        setSupplyCategories((prev) => prev.map((c) => (c === oldName ? trimmed : c)));
+        setSupplies((prev) =>
+          prev.map((s) => (s.category === oldName ? { ...s, category: trimmed } : s)),
+        );
+      },
+      // Edita nome, categoria, unidade e mínimo. A quantidade em estoque em
+      // si só muda por movimentação (entrada/saída), pra manter o histórico
+      // de movimentações sempre batendo com o saldo atual.
+      updateSupply: (id: string, patch: Partial<Omit<SupplyItem, "id" | "quantity">>) =>
+        setSupplies((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s))),
+      // Remove o insumo e desfaz o vínculo em qualquer produto do catálogo
+      // que apontava pra ele — senão o produto continuaria "vendendo" um
+      // insumo que não existe mais.
+      removeSupply: (id: string) => {
+        setSupplies((prev) => prev.filter((s) => s.id !== id));
+        setProducts((prev) =>
+          prev.map((p) => {
+            if (p.supplyId !== id) return p;
+            const { supplyId: _supplyId, qtyPerSale: _qtyPerSale, ...rest } = p;
+            return rest;
+          }),
+        );
+      },
       // Registra a movimentação e já ajusta a quantidade do insumo (sem deixar
       // ficar negativa). Uma entrada com custo também lança a despesa sozinha
       // no Financeiro - é o "alimenta automaticamente o financeiro" pedido.
@@ -619,12 +851,18 @@ function usePmsState() {
       },
     }),
     [
+      rooms,
+      roomsLoading,
+      roomsError,
       guests,
       reservations,
+      reservationsLoading,
+      reservationsError,
       consumptions,
       transactions,
       products,
       supplies,
+      supplyCategories,
       supplyMovements,
       salaryPayments,
     ],

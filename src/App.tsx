@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Menu } from "lucide-react";
+import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { AppSidebar, type ScreenKey } from "@/components/pms/AppSidebar";
 import { LoginScreen } from "@/components/pms/LoginScreen";
 import { DashboardScreen } from "@/components/pms/DashboardScreen";
 import { MapScreen } from "@/components/pms/MapScreen";
 import { GuestsScreen } from "@/components/pms/GuestsScreen";
+import { FinishedGuestsScreen } from "@/components/pms/FinishedGuestsScreen";
 import { ProductsScreen } from "@/components/pms/ProductsScreen";
 import { SupplyScreen } from "@/components/pms/SupplyScreen";
 import { StaffScreen } from "@/components/pms/StaffScreen";
@@ -18,44 +20,83 @@ import {
   clearSavedUser,
   loadSavedUser,
   saveUser,
-  SEED_ACCOUNTS,
-  type DemoAccount,
+  type StaffInput,
   type StaffUser,
 } from "@/lib/auth";
+import {
+  clearTokens,
+  createStaff,
+  deleteStaff,
+  fetchStaff,
+  SessionExpiredError,
+  updateStaff,
+} from "@/lib/api";
 
 const titles: Record<ScreenKey, { title: string; subtitle: string }> = {
   dashboard: { title: "Visão Geral", subtitle: "Resumo operacional da pousada hoje" },
   mapa: { title: "Mapa de Reservas", subtitle: "Ocupação por quarto ao longo do mês" },
   hospedes: { title: "Hóspedes (FNRH)", subtitle: "Cadastro legal e histórico de estadias" },
+  "clientes-finalizados": {
+    title: "Clientes Finalizados",
+    subtitle: "Histórico de check-outs para marketing e reservas futuras",
+  },
   produtos: { title: "Produtos & Preços", subtitle: "Catálogo de itens vendidos na pousada" },
   estoque: { title: "Estoque de Insumos", subtitle: "Controle de compras, uso e estoque mínimo" },
   colaboradores: { title: "Colaboradores", subtitle: "Cadastro de acesso da equipe" },
   financeiro: { title: "Financeiro", subtitle: "Fluxo de caixa, despesas e resultado" },
 };
 
-const uid = () => Math.random().toString(36).slice(2, 10);
-
 export function App() {
   const [user, setUser] = useState<StaffUser | null>(() => loadSavedUser());
-  const [accounts, setAccounts] = useState<DemoAccount[]>(SEED_ACCOUNTS);
+  const [accounts, setAccounts] = useState<StaffUser[]>([]);
 
-  const addAccount = (a: Omit<DemoAccount, "id">) => {
-    setAccounts((prev) => [{ ...a, id: uid() }, ...prev]);
+  const logout = () => {
+    clearTokens();
+    clearSavedUser();
+    setUser(null);
   };
 
-  const updateAccount = (id: string, patch: Omit<DemoAccount, "id">) => {
-    setAccounts((prev) => prev.map((a) => (a.id === id ? { id, ...patch } : a)));
+  // Erro de sessão expirada pode vir de qualquer chamada de API (rooms,
+  // reservations, staff) — trata em um lugar só: desloga e explica o motivo.
+  const handleApiError = (err: unknown) => {
+    if (err instanceof SessionExpiredError) {
+      toast.error("Sua sessão expirou. Faça login novamente.");
+      logout();
+      return true;
+    }
+    return false;
+  };
+
+  // Lista de colaboradores só é carregada depois do login (a tela
+  // Colaboradores precisa dela, mas é AllowAny-blocked sem token mesmo).
+  useEffect(() => {
+    if (!user) return;
+    fetchStaff()
+      .then(setAccounts)
+      .catch((err) => {
+        if (!handleApiError(err)) toast.error("Não foi possível carregar os colaboradores.");
+      });
+  }, [user]);
+
+  const addAccount = async (a: StaffInput) => {
+    const created = await createStaff(a);
+    setAccounts((prev) => [created, ...prev]);
+  };
+
+  const updateAccount = async (id: string, patch: StaffInput) => {
+    const updated = await updateStaff(id, patch);
+    setAccounts((prev) => prev.map((a) => (a.id === id ? updated : a)));
     // Se a gerência editar o próprio usuário logado, atualiza a sessão na
     // hora - senão a sidebar e as regras de acesso ficam com dado velho.
     setUser((prevUser) => {
       if (!prevUser || prevUser.id !== id) return prevUser;
-      const { password: _password, ...updated } = { id, ...patch };
       saveUser(updated);
       return updated;
     });
   };
 
-  const removeAccount = (id: string) => {
+  const removeAccount = async (id: string) => {
+    await deleteStaff(id);
     setAccounts((prev) => prev.filter((a) => a.id !== id));
   };
 
@@ -63,7 +104,6 @@ export function App() {
     return (
       <>
         <LoginScreen
-          accounts={accounts}
           onLogin={(u) => {
             saveUser(u);
             setUser(u);
@@ -82,10 +122,7 @@ export function App() {
         onAddAccount={addAccount}
         onUpdateAccount={updateAccount}
         onRemoveAccount={removeAccount}
-        onLogout={() => {
-          clearSavedUser();
-          setUser(null);
-        }}
+        onLogout={logout}
       />
       <Toaster position="top-right" richColors />
     </PmsProvider>
@@ -101,10 +138,10 @@ function Workspace({
   onLogout,
 }: {
   user: StaffUser;
-  accounts: DemoAccount[];
-  onAddAccount: (a: Omit<DemoAccount, "id">) => void;
-  onUpdateAccount: (id: string, patch: Omit<DemoAccount, "id">) => void;
-  onRemoveAccount: (id: string) => void;
+  accounts: StaffUser[];
+  onAddAccount: (a: StaffInput) => Promise<void>;
+  onUpdateAccount: (id: string, patch: StaffInput) => Promise<void>;
+  onRemoveAccount: (id: string) => Promise<void>;
   onLogout: () => void;
 }) {
   const [screen, setScreen] = useState<ScreenKey>("dashboard");
@@ -192,6 +229,7 @@ function Workspace({
             />
           )}
           {screen === "hospedes" && <GuestsScreen />}
+          {screen === "clientes-finalizados" && <FinishedGuestsScreen />}
           {screen === "produtos" && <ProductsScreen />}
           {screen === "estoque" && <SupplyScreen />}
           {screen === "colaboradores" && canAccessScreen(user, "colaboradores") && (

@@ -1,32 +1,35 @@
 import { useState, type FormEvent } from "react";
-import { LogIn } from "lucide-react";
+import { LogIn, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { findAccount, type DemoAccount, type StaffUser } from "@/lib/auth";
+import type { StaffUser } from "@/lib/auth";
+import { login } from "@/lib/api";
 
-export function LoginScreen({
-  accounts,
-  onLogin,
-}: {
-  accounts: DemoAccount[];
-  onLogin: (user: StaffUser) => void;
-}) {
+export function LoginScreen({ onLogin }: { onLogin: (user: StaffUser) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const user = findAccount(accounts, email, password);
-    if (!user) {
+    setLoading(true);
+    try {
+      const user = await login(email, password);
+      setError(false);
+      onLogin(user);
+    } catch (err) {
       setError(true);
-      toast.error("E-mail ou senha incorretos.");
-      return;
+      // Mostra a mensagem real (credencial errada vs. servidor fora do ar
+      // vs. erro inesperado) em vez de sempre dizer "senha incorreta" — ver
+      // login() em lib/api.ts.
+      const message = err instanceof Error ? err.message : "E-mail ou senha incorretos.";
+      toast.error(message);
+    } finally {
+      setLoading(false);
     }
-    setError(false);
-    onLogin(user);
   };
 
   return (
@@ -70,19 +73,10 @@ export function LoginScreen({
               aria-invalid={error}
             />
           </div>
-          <Button type="submit" className="h-11 w-full">
-            <LogIn /> Entrar
+          <Button type="submit" className="h-11 w-full" disabled={loading}>
+            {loading ? <Loader2 className="animate-spin" /> : <LogIn />} Entrar
           </Button>
         </form>
-
-        <div className="rounded-xl border border-dashed border-border bg-muted/40 p-3 text-center text-xs text-muted-foreground">
-          <p className="font-medium">Credenciais de demonstração</p>
-          {accounts.map((a) => (
-            <p key={a.id} className="mt-1 first:mt-1">
-              {a.email} · {a.password}
-            </p>
-          ))}
-        </div>
       </div>
     </div>
   );

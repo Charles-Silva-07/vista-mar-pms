@@ -243,6 +243,10 @@ export function MapScreen({
                 <span className="font-medium">{room?.category}</span>
               </div>
               <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Origem</span>
+                <span className="font-medium">{selected.origin}</span>
+              </div>
+              <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Período</span>
                 <span className="font-medium">
                   {selected.start.split("-").reverse().join("/")} →{" "}

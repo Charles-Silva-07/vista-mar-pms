@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BedDouble, LogIn, LogOut, Percent, TrendingUp, Plus, Receipt } from "lucide-react";
+import { BedDouble, LogIn, LogOut, Percent, TrendingUp, Plus, Receipt, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -77,6 +77,13 @@ export function DashboardScreen({
   const occupancy = Math.round((inHouse.length / rooms.length) * 100);
   const roomOf = (id: string) => rooms.find((r) => r.id === id);
 
+  // ADR (ticket médio diário) e RevPAR, calculados sobre as diárias em
+  // andamento hoje: cada hospedagem ocupada conta uma diária no dia de hoje,
+  // pelo valor acordado na reserva (r.rate).
+  const hospedagemRevenueHoje = inHouse.reduce((s, r) => s + r.rate, 0);
+  const adr = inHouse.length > 0 ? hospedagemRevenueHoje / inHouse.length : 0;
+  const revpar = rooms.length > 0 ? hospedagemRevenueHoje / rooms.length : 0;
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -103,6 +110,21 @@ export function DashboardScreen({
           value={brl(revenue)}
           icon={TrendingUp}
           tone="success"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <MetricCard
+          label="ADR (diária média)"
+          value={brl(adr)}
+          hint="Média das diárias ocupadas hoje"
+          icon={Wallet}
+        />
+        <MetricCard
+          label="RevPAR"
+          value={brl(revpar)}
+          hint="Receita por apartamento disponível hoje"
+          icon={Wallet}
         />
       </div>
 

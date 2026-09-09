@@ -9,6 +9,7 @@ import {
   Boxes,
   UserCog,
   LogOut,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canAccessScreen, type StaffUser } from "@/lib/auth";
@@ -18,6 +19,7 @@ export type ScreenKey =
   | "dashboard"
   | "mapa"
   | "hospedes"
+  | "clientes-finalizados"
   | "produtos"
   | "estoque"
   | "colaboradores"
@@ -27,6 +29,7 @@ const items: { key: ScreenKey; label: string; icon: typeof LayoutDashboard }[] =
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "mapa", label: "Mapa de Reservas", icon: CalendarRange },
   { key: "hospedes", label: "Hóspedes (FNRH)", icon: Users },
+  { key: "clientes-finalizados", label: "Clientes Finalizados", icon: UserCheck },
   { key: "produtos", label: "Produtos & Preços", icon: ShoppingBag },
   { key: "estoque", label: "Estoque de Insumos", icon: Boxes },
   { key: "colaboradores", label: "Colaboradores", icon: UserCog },

@@ -30,6 +30,15 @@ graphify-out/
 /homem.png
 /mulher.png
 
+# Notas locais - nao vao pro repositorio
+COMO-RODAR-LOCAL.md
+
+# Variaveis de ambiente locais - nunca comitar (URL da API pode mudar por
+# ambiente, e um .env futuro pode passar a guardar segredo de verdade)
+.env
+.env.local
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

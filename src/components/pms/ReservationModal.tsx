@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { QuantityInput } from "@/components/pms/QuantityInput";
-import { brl, day, usePms } from "@/lib/pms-store";
+import { brl, day, reservationOrigins, usePms, type ReservationOrigin } from "@/lib/pms-store";
 
 export function ReservationModal({
   open,
@@ -37,6 +37,7 @@ export function ReservationModal({
   const [start, setStart] = useState(defaultDate ?? day(0));
   const [nights, setNights] = useState("2");
   const [eta, setEta] = useState("14:00");
+  const [origin, setOrigin] = useState<ReservationOrigin>("Direto");
   const [amountPaidInput, setAmountPaidInput] = useState("0");
 
   useEffect(() => {
@@ -69,10 +70,12 @@ export function ReservationModal({
       eta,
       nights: n,
       rate: chosenRoom.rate,
+      origin,
     });
     toast.success(`Reserva criada para ${guestName} no quarto ${chosenRoom.number}.`);
     setGuestName("");
     setAmountPaidInput("0");
+    setOrigin("Direto");
     onOpenChange(false);
   };
 
@@ -116,6 +119,21 @@ export function ReservationModal({
               <Label>Diárias</Label>
               <QuantityInput value={nights} onChange={setNights} min={1} />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Origem da reserva</Label>
+            <Select value={origin} onValueChange={(v) => setOrigin(v as ReservationOrigin)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {reservationOrigins.map((o) => (
+                  <SelectItem key={o} value={o}>
+                    {o}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label>Horário previsto</Label>

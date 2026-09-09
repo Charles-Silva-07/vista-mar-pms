@@ -19,15 +19,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { QuantityInput } from "@/components/pms/QuantityInput";
 import { brl, productCategories, usePms, type ProductCategory } from "@/lib/pms-store";
 
-const emptyForm = { name: "", category: productCategories[0]!, price: "" };
+const NO_SUPPLY = "nenhum";
+const emptyForm = {
+  name: "",
+  category: productCategories[0]!,
+  price: "",
+  supplyId: NO_SUPPLY,
+  qtyPerSale: "1",
+};
 
 export function ProductsScreen() {
-  const { products, addProduct, removeProduct } = usePms();
+  const { products, addProduct, removeProduct, supplies } = usePms();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const supplyName = (id?: string) => supplies.find((s) => s.id === id)?.name;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -41,7 +50,14 @@ export function ProductsScreen() {
       toast.error("Informe o nome e o valor do item.");
       return;
     }
-    addProduct({ name: form.name.trim(), category: form.category, price });
+    const hasSupply = form.supplyId !== NO_SUPPLY;
+    const qtyPerSale = Number(form.qtyPerSale.replace(",", ".")) || 1;
+    addProduct({
+      name: form.name.trim(),
+      category: form.category,
+      price,
+      ...(hasSupply ? { supplyId: form.supplyId, qtyPerSale } : {}),
+    });
     toast.success("Item cadastrado no catálogo.");
     setForm(emptyForm);
     setOpen(false);
@@ -72,6 +88,7 @@ export function ProductsScreen() {
             <tr>
               <th className="px-4 py-3 font-semibold">Item</th>
               <th className="px-4 py-3 font-semibold">Categoria</th>
+              <th className="px-4 py-3 font-semibold">Estoque vinculado</th>
               <th className="px-4 py-3 text-right font-semibold">Valor</th>
               <th className="px-4 py-3 font-semibold">Ações</th>
             </tr>
@@ -79,7 +96,7 @@ export function ProductsScreen() {
           <tbody className="divide-y divide-border">
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                   Nenhum item encontrado.
                 </td>
               </tr>
@@ -89,6 +106,16 @@ export function ProductsScreen() {
                 <td className="px-4 py-3 font-medium">{p.name}</td>
                 <td className="px-4 py-3">
                   <Badge variant="secondary">{p.category}</Badge>
+                </td>
+                <td className="px-4 py-3 text-muted-foreground">
+                  {p.supplyId ? (
+                    <span>
+                      {supplyName(p.supplyId) ?? "Item removido"}{" "}
+                      <span className="text-xs">(-{p.qtyPerSale ?? 1}/venda)</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs italic">Sem controle</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right font-semibold">{brl(p.price)}</td>
                 <td className="px-4 py-3">
@@ -159,6 +186,39 @@ export function ProductsScreen() {
                 />
               </div>
             </div>
+            <div className="space-y-1.5">
+              <Label>Vincular a insumo do estoque (opcional)</Label>
+              <Select
+                value={form.supplyId}
+                onValueChange={(v) => setForm({ ...form, supplyId: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_SUPPLY}>Nenhum (sem controle de estoque)</SelectItem>
+                  {supplies.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} ({s.quantity} {s.unit} em estoque)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Ao vender este item no extrato do hóspede, a quantidade abaixo é baixada
+                automaticamente do estoque.
+              </p>
+            </div>
+            {form.supplyId !== NO_SUPPLY && (
+              <div className="space-y-1.5">
+                <Label>Qtd. de estoque consumida por venda</Label>
+                <QuantityInput
+                  value={form.qtyPerSale}
+                  onChange={(v) => setForm({ ...form, qtyPerSale: v })}
+                  min={1}
+                />
+              </div>
+            )}
             <Button className="w-full" onClick={submit}>
               Salvar item
             </Button>

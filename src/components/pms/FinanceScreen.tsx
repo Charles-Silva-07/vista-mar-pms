@@ -22,12 +22,12 @@ import {
 import { toast } from "sonner";
 import { brl, currentMonth, day, usePms } from "@/lib/pms-store";
 import { cn } from "@/lib/utils";
-import type { DemoAccount } from "@/lib/auth";
+import type { StaffUser } from "@/lib/auth";
 
 const categories = ["Energia/Água", "Lavanderia", "Insumos/Frigobar", "Salários", "Manutenção"];
 const ALL_CATEGORIES = "__todas__";
 
-export function FinanceScreen({ accounts }: { accounts: DemoAccount[] }) {
+export function FinanceScreen({ accounts }: { accounts: StaffUser[] }) {
   const { transactions, addTransaction, salaryPayments } = usePms();
   const [open, setOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
@@ -43,7 +43,7 @@ export function FinanceScreen({ accounts }: { accounts: DemoAccount[] }) {
   const expense = transactions.filter((t) => t.type === "saida").reduce((s, t) => s + t.amount, 0);
 
   const activeStaff = useMemo(() => accounts.filter((a) => a.active), [accounts]);
-  const staffMonthlyCost = (a: DemoAccount) =>
+  const staffMonthlyCost = (a: StaffUser) =>
     a.salary +
     (a.transportBenefit ? a.transportBenefitAmount : 0) +
     (a.mealBenefit ? a.mealBenefitAmount : 0);
