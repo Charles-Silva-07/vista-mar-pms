@@ -4,9 +4,9 @@ import tailwindcss from "@tailwindcss/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 // Plain Vite SPA config (no server/SSR framework) so the build is a static
-// bundle GitHub Pages can serve directly.
+// bundle deployed at the domain root (Vercel).
 export default defineConfig({
-  base: "/vista-mar-pms/", // Configura o subcaminho do GitHub Pages
+  base: "/",
   plugins: [react(), tailwindcss(), tsconfigPaths()],
   build: {
     outDir: "dist",
