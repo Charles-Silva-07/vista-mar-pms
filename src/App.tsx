@@ -12,6 +12,7 @@ import { ProductsScreen } from "@/components/pms/ProductsScreen";
 import { SupplyScreen } from "@/components/pms/SupplyScreen";
 import { StaffScreen } from "@/components/pms/StaffScreen";
 import { FinanceScreen } from "@/components/pms/FinanceScreen";
+import { HelpScreen } from "@/components/pms/HelpScreen";
 import { AccountModal } from "@/components/pms/AccountModal";
 import { ReservationModal } from "@/components/pms/ReservationModal";
 import { PmsProvider, type Reservation } from "@/lib/pms-store";
@@ -44,6 +45,7 @@ const titles: Record<ScreenKey, { title: string; subtitle: string }> = {
   estoque: { title: "Estoque de Insumos", subtitle: "Controle de compras, uso e estoque mínimo" },
   colaboradores: { title: "Colaboradores", subtitle: "Cadastro de acesso da equipe" },
   financeiro: { title: "Financeiro", subtitle: "Fluxo de caixa, despesas e resultado" },
+  ajuda: { title: "Ajuda", subtitle: "Manual de uso do sistema, passo a passo" },
 };
 
 export function App() {
@@ -244,6 +246,7 @@ function Workspace({
           {screen === "financeiro" && canAccessScreen(user, "financeiro") && (
             <FinanceScreen accounts={accounts} />
           )}
+          {screen === "ajuda" && <HelpScreen />}
         </main>
       </div>
 
