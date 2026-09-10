@@ -751,7 +751,12 @@ export async function createSalaryPayment(
       date: p.date,
     }),
   });
-  if (!res.ok) throw new Error(`Falha ao lançar pagamento (${res.status})`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(
+      body?.non_field_errors?.[0] ?? `Falha ao lançar pagamento (${res.status})`,
+    );
+  }
   return normalizeSalaryPayment(await res.json());
 }
 
