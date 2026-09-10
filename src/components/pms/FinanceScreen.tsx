@@ -82,23 +82,27 @@ export function FinanceScreen({ accounts }: { accounts: StaffUser[] }) {
     [transactions, categoryFilter],
   );
 
-  const submit = () => {
+  const submit = async () => {
     const amount = Number(form.amount.replace(".", "").replace(",", "."));
     if (!form.description.trim() || !amount) {
       toast.error("Informe a descrição e o valor da despesa.");
       return;
     }
-    addTransaction({
-      date: form.date,
-      description: form.description.trim(),
-      category: form.category,
-      amount,
-      type: "saida",
-      status: form.status,
-    });
-    toast.success("Despesa lançada no fluxo de caixa.");
-    setForm({ ...form, description: "", amount: "" });
-    setOpen(false);
+    try {
+      await addTransaction({
+        date: form.date,
+        description: form.description.trim(),
+        category: form.category,
+        amount,
+        type: "saida",
+        status: form.status,
+      });
+      toast.success("Despesa lançada no fluxo de caixa.");
+      setForm({ ...form, description: "", amount: "" });
+      setOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível lançar a despesa.");
+    }
   };
 
   return (

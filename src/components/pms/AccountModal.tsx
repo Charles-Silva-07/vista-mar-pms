@@ -71,7 +71,7 @@ export function AccountModal({
   const selectedProduct = products.find((p) => p.id === productId);
   const isCustom = productId === CUSTOM_ITEM || !selectedProduct;
 
-  const addItem = () => {
+  const addItem = async () => {
     const name = isCustom ? customName.trim() : selectedProduct!.name;
     const unitPrice = isCustom ? Number(customPrice.replace(",", ".")) : selectedProduct!.price;
     const qtyNum = Number(qty) || 1;
@@ -96,26 +96,30 @@ export function AccountModal({
       stockUsage = { supplyId: selectedProduct.supplyId, supplyQty };
     }
 
-    addConsumption({
-      reservationId: reservation.id,
-      name,
-      qty: qtyNum,
-      unitPrice,
-      ...stockUsage,
-    });
-    setCustomName("");
-    setCustomPrice("");
-    setQty("1");
-    toast.success("Consumo lançado no extrato.");
+    try {
+      await addConsumption({
+        reservationId: reservation.id,
+        name,
+        qty: qtyNum,
+        unitPrice,
+        ...stockUsage,
+      });
+      setCustomName("");
+      setCustomPrice("");
+      setQty("1");
+      toast.success("Consumo lançado no extrato.");
 
-    if (stockUsage) {
-      const supply = supplies.find((s) => s.id === stockUsage!.supplyId);
-      if (supply) {
-        const remainingStock = supply.quantity - stockUsage.supplyQty;
-        if (isLowStock({ ...supply, quantity: remainingStock })) {
-          toast.warning(`Estoque de "${supply.name}" ficou baixo (${remainingStock} ${supply.unit}).`);
+      if (stockUsage) {
+        const supply = supplies.find((s) => s.id === stockUsage!.supplyId);
+        if (supply) {
+          const remainingStock = supply.quantity - stockUsage.supplyQty;
+          if (isLowStock({ ...supply, quantity: remainingStock })) {
+            toast.warning(`Estoque de "${supply.name}" ficou baixo (${remainingStock} ${supply.unit}).`);
+          }
         }
       }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível lançar o consumo.");
     }
   };
 
@@ -132,7 +136,7 @@ export function AccountModal({
         amount: remaining,
         type: "entrada",
         status: "Pago",
-      });
+      }).catch((err) => console.error("Não consegui lançar a receita do check-out no financeiro:", err));
     }
     updateReservationStatus(reservation.id, "finalizada");
     updateReservationPayment(reservation.id, total);
@@ -195,9 +199,13 @@ export function AccountModal({
                     <span className="font-medium">{brl(i.qty * i.unitPrice)}</span>
                     <button
                       type="button"
-                      onClick={() => {
-                        removeConsumption(i.id);
-                        toast.success(`"${i.name}" removido do extrato.`);
+                      onClick={async () => {
+                        try {
+                          await removeConsumption(i.id);
+                          toast.success(`"${i.name}" removido do extrato.`);
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Não foi possível remover o item.");
+                        }
                       }}
                       className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                       aria-label={`Remover ${i.name} do extrato`}

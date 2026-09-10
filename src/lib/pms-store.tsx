@@ -1,11 +1,33 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
+  createConsumption as apiCreateConsumption,
+  createGuest as apiCreateGuest,
+  createProduct as apiCreateProduct,
   createReservation as apiCreateReservation,
   createRoom as apiCreateRoom,
+  createSalaryPayment as apiCreateSalaryPayment,
+  createSupply as apiCreateSupply,
+  createSupplyCategory as apiCreateSupplyCategory,
+  createSupplyMovement as apiCreateSupplyMovement,
+  createTransaction as apiCreateTransaction,
+  deleteConsumptionApi,
+  deleteProductApi,
+  deleteSalaryPaymentApi,
+  deleteSupplyApi,
+  fetchConsumptions,
+  fetchGuests,
+  fetchProducts,
   fetchReservations,
   fetchRooms,
+  fetchSalaryPayments,
+  fetchSupplies,
+  fetchSupplyCategories,
+  fetchSupplyMovements,
+  fetchTransactions,
   patchReservation,
+  renameSupplyCategoryApi,
+  updateSupplyApi,
 } from "./api";
 
 export type ReservationStatus = "confirmada" | "andamento" | "finalizada" | "cancelada";
@@ -85,13 +107,6 @@ export const productCategories: ProductCategory[] = ["Bebidas", "Alimentos", "Se
 // renameSupplyCategory mais abaixo.
 export type SupplyCategory = string;
 
-const seedSupplyCategories: SupplyCategory[] = [
-  "Governança e Quartos",
-  "Alimentos e Bebidas",
-  "Limpeza e Higiene",
-  "Outros",
-];
-
 export type SupplyItem = {
   id: string;
   name: string;
@@ -142,6 +157,9 @@ export const day = (offset: number) => {
 };
 export const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 export const formatDate = (s: string) => s.split("-").reverse().slice(0, 2).join("/");
+// "yyyy-mm" do mês corrente — usado pra achar se um colaborador já foi pago
+// este mês (ver StaffScreen/FinanceScreen).
+export const currentMonth = () => day(0).slice(0, 7);
 
 // Usado só como fallback (estado inicial antes da API responder, ou se o
 // backend estiver fora do ar) — a fonte de verdade agora é o Django
@@ -155,74 +173,6 @@ const seedRooms: Room[] = [
   { id: "202", number: "202", category: "Standard Casal", rate: 380 },
   { id: "203", number: "203", category: "Chalé Jardim", rate: 520 },
   { id: "204", number: "204", category: "Standard Solteiro", rate: 260 },
-];
-
-const seedGuests: Guest[] = [
-  {
-    id: "g1",
-    name: "Marina Duarte",
-    document: "482.119.330-72",
-    country: "Brasil",
-    phone: "(21) 99812-4477",
-    email: "marina.duarte@email.com",
-    purpose: "Lazer",
-    transport: "Automóvel",
-    lastCity: "Rio de Janeiro / RJ",
-    nextCity: "Búzios / RJ",
-    stays: 4,
-  },
-  {
-    id: "g2",
-    name: "Carlos Menezes",
-    document: "701.554.882-10",
-    country: "Brasil",
-    phone: "(11) 98123-0091",
-    email: "carlos.menezes@corp.com",
-    purpose: "Negócios",
-    transport: "Avião",
-    lastCity: "São Paulo / SP",
-    nextCity: "Recife / PE",
-    stays: 9,
-  },
-  {
-    id: "g3",
-    name: "Sofia Bianchi",
-    document: "YA8823471 (Passaporte)",
-    country: "Itália",
-    phone: "+39 340 118 2299",
-    email: "sofia.bianchi@mail.it",
-    purpose: "Lazer",
-    transport: "Avião",
-    lastCity: "Milão / Itália",
-    nextCity: "Salvador / BA",
-    stays: 1,
-  },
-  {
-    id: "g4",
-    name: "Rafael Lima",
-    document: "339.882.114-55",
-    country: "Brasil",
-    phone: "(31) 99544-2210",
-    email: "rafael.lima@email.com",
-    purpose: "Eventos",
-    transport: "Ônibus",
-    lastCity: "Belo Horizonte / MG",
-    nextCity: "Vitória / ES",
-    stays: 2,
-  },
-  {
-    id: "g5",
-    name: "Helena Prado",
-    document: "112.909.774-38",
-    country: "Brasil",
-    phone: "(48) 99120-8890",
-    email: "helena.prado@email.com",
-    purpose: "Descanso",
-    transport: "Automóvel",
-    lastCity: "Florianópolis / SC",
-    nextCity: "Curitiba / PR",
-    stays: 6,
-  },
 ];
 
 const seedReservations: Reservation[] = [
@@ -378,201 +328,37 @@ const seedReservations: Reservation[] = [
   },
 ];
 
-const seedProducts: Product[] = [
-  // Exemplo de vínculo com estoque: cada venda deste item baixa 1 unidade
-  // do insumo "s8" (Água mineral - galão). Os demais itens do catálogo
-  // ficam sem vínculo por padrão; cadastre o vínculo na tela Produtos &
-  // Preços quando o insumo correspondente existir no estoque.
-  { id: "p1", name: "Água mineral 500ml", category: "Bebidas", price: 7, supplyId: "s8", qtyPerSale: 1 },
-  { id: "p2", name: "Água de coco", category: "Bebidas", price: 10, supplyId: "s9", qtyPerSale: 1 },
-  { id: "p3", name: "Refrigerante lata", category: "Bebidas", price: 9, supplyId: "s10", qtyPerSale: 1 },
-  { id: "p4", name: "Cerveja artesanal", category: "Bebidas", price: 18, supplyId: "s11", qtyPerSale: 1 },
-  { id: "p5", name: "Salgado assado", category: "Alimentos", price: 12 },
-  { id: "p6", name: "Porção de batata frita", category: "Alimentos", price: 28 },
-  { id: "p7", name: "Sanduíche natural", category: "Alimentos", price: 22 },
-  { id: "p8", name: "Café da manhã extra", category: "Alimentos", price: 32 },
-  { id: "p9", name: "Taxa de lavanderia", category: "Serviços", price: 45 },
-  { id: "p10", name: "Toalha extra", category: "Serviços", price: 15 },
-  { id: "p11", name: "Late check-out (por hora)", category: "Serviços", price: 40 },
-];
+// Busca uma lista no backend ao montar e devolve [dados, loading, error] —
+// mesmo padrão usado por rooms/reservations, agora reaproveitado pelas
+// entidades que antes só existiam em memória (Hóspedes, Produtos, Estoque,
+// Financeiro). Sem seed: se o backend não responder, a tela mostra vazio (e
+// o erro), em vez de dado de demonstração fixo.
+function useFetchedList<T>(fetcher: () => Promise<T[]>): [T[], boolean, string | null, (v: T[] | ((prev: T[]) => T[])) => void] {
+  const [data, setData] = useState<T[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-const seedConsumptions: ConsumptionItem[] = [
-  { id: "c1", reservationId: "r1", name: "Água mineral 500ml", qty: 2, unitPrice: 7 },
-  { id: "c2", reservationId: "r1", name: "Refrigerante lata", qty: 1, unitPrice: 9 },
-  { id: "c3", reservationId: "r1", name: "Taxa de lavanderia", qty: 1, unitPrice: 45 },
-  { id: "c4", reservationId: "r2", name: "Café da manhã extra", qty: 2, unitPrice: 32 },
-  { id: "c5", reservationId: "r8", name: "Cerveja artesanal", qty: 3, unitPrice: 18 },
-];
+  useEffect(() => {
+    let cancelled = false;
+    fetcher()
+      .then((result) => {
+        if (!cancelled) setData(result);
+      })
+      .catch((err) => {
+        console.error("Não consegui buscar dados do backend:", err);
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-const seedSupplies: SupplyItem[] = [
-  { id: "s1", name: "Papel higiênico", category: "Governança e Quartos", unit: "rolo", quantity: 18, minQuantity: 24 },
-  { id: "s2", name: "Sabonete", category: "Governança e Quartos", unit: "un", quantity: 40, minQuantity: 30 },
-  { id: "s7", name: "Toalha de banho", category: "Governança e Quartos", unit: "un", quantity: 35, minQuantity: 20 },
-  { id: "s4", name: "Café em pó", category: "Alimentos e Bebidas", unit: "kg", quantity: 6, minQuantity: 4 },
-  { id: "s5", name: "Açúcar", category: "Alimentos e Bebidas", unit: "kg", quantity: 8, minQuantity: 5 },
-  { id: "s8", name: "Água mineral (galão)", category: "Alimentos e Bebidas", unit: "un", quantity: 4, minQuantity: 6 },
-  { id: "s9", name: "Água de coco (unidade)", category: "Alimentos e Bebidas", unit: "un", quantity: 20, minQuantity: 12 },
-  { id: "s10", name: "Refrigerante lata", category: "Alimentos e Bebidas", unit: "un", quantity: 30, minQuantity: 18 },
-  { id: "s11", name: "Cerveja artesanal", category: "Alimentos e Bebidas", unit: "un", quantity: 15, minQuantity: 12 },
-  { id: "s3", name: "Detergente", category: "Limpeza e Higiene", unit: "L", quantity: 3, minQuantity: 5 },
-  { id: "s6", name: "Álcool em gel", category: "Limpeza e Higiene", unit: "L", quantity: 2, minQuantity: 6 },
-];
-
-const seedSupplyMovements: SupplyMovement[] = [
-  {
-    id: "sm1",
-    supplyId: "s1",
-    type: "entrada",
-    quantity: 24,
-    date: day(-10),
-    unitCost: 3.5,
-    note: "Compra mensal",
-  },
-  {
-    id: "sm2",
-    supplyId: "s1",
-    type: "saida",
-    quantity: 6,
-    date: day(-2),
-    note: "Reposição dos quartos",
-  },
-  {
-    id: "sm3",
-    supplyId: "s3",
-    type: "entrada",
-    quantity: 10,
-    date: day(-15),
-    unitCost: 12,
-    note: "Compra mensal",
-  },
-  {
-    id: "sm4",
-    supplyId: "s3",
-    type: "saida",
-    quantity: 7,
-    date: day(-3),
-    note: "Limpeza geral",
-  },
-  {
-    id: "sm5",
-    supplyId: "s6",
-    type: "entrada",
-    quantity: 8,
-    date: day(-20),
-    unitCost: 9.9,
-    note: "Compra mensal",
-  },
-  {
-    id: "sm6",
-    supplyId: "s6",
-    type: "saida",
-    quantity: 6,
-    date: day(-1),
-    note: "Recepção e quartos",
-  },
-];
-
-const seedTransactions: Transaction[] = [
-  {
-    id: "t1",
-    date: day(-6),
-    description: "Diárias — Quarto 104 (Helena Prado)",
-    category: "Hospedagem",
-    amount: 3120,
-    type: "entrada",
-    status: "Pago",
-  },
-  {
-    id: "t2",
-    date: day(-5),
-    description: "Conta de Energia — CEMIG",
-    category: "Energia/Água",
-    amount: 1840,
-    type: "saida",
-    status: "Pago",
-  },
-  {
-    id: "t3",
-    date: day(-4),
-    description: "Compra de insumos frigobar",
-    category: "Insumos/Frigobar",
-    amount: 720,
-    type: "saida",
-    status: "Pago",
-  },
-  {
-    id: "t4",
-    date: day(-3),
-    description: "Diárias — Quarto 103 (Família Andrade)",
-    category: "Hospedagem",
-    amount: 1020,
-    type: "entrada",
-    status: "Pago",
-  },
-  {
-    id: "t5",
-    date: day(-2),
-    description: "Lavanderia terceirizada",
-    category: "Lavanderia",
-    amount: 460,
-    type: "saida",
-    status: "Pendente",
-  },
-  {
-    id: "t6",
-    date: day(-1),
-    description: "Consumo frigobar — Quarto 101",
-    category: "Consumo",
-    amount: 68,
-    type: "entrada",
-    status: "Pago",
-  },
-  {
-    id: "t7",
-    date: day(0),
-    description: "Diárias — Quarto 102 (Carlos Menezes)",
-    category: "Hospedagem",
-    amount: 760,
-    type: "entrada",
-    status: "Pago",
-  },
-  {
-    id: "t8",
-    date: day(0),
-    description: "Manutenção do ar-condicionado",
-    category: "Manutenção",
-    amount: 380,
-    type: "saida",
-    status: "Pendente",
-  },
-  {
-    id: "t9",
-    date: day(-10),
-    description: "Salário — Ana Paula (2026-08)",
-    category: "Salários",
-    amount: 1800 + 220 + 450,
-    type: "saida",
-    status: "Pago",
-  },
-];
-
-// Exemplo: a Ana Paula (u1) já foi paga esse mês, o Carlos (u2) ainda não -
-// pra demonstrar os dois estados (Pago/Pendente) na tela de Colaboradores.
-export const currentMonth = () => day(0).slice(0, 7);
-
-const seedSalaryPayments: SalaryPayment[] = [
-  {
-    id: "sp1",
-    staffId: "u1",
-    staffName: "Ana Paula",
-    month: currentMonth(),
-    amount: 1800 + 220 + 450,
-    date: day(-10),
-    transactionId: "t9",
-  },
-];
-
-const uid = () => Math.random().toString(36).slice(2, 10);
+  return [data, loading, error, setData];
+}
 
 function usePmsState() {
   const [rooms, setRooms] = useState<Room[]>(seedRooms);
@@ -624,17 +410,30 @@ function usePmsState() {
     };
   }, []);
 
-  const [guests, setGuests] = useState<Guest[]>(seedGuests);
-  const [consumptions, setConsumptions] = useState<ConsumptionItem[]>(seedConsumptions);
-  const [transactions, setTransactions] = useState<Transaction[]>(seedTransactions);
-  const [products, setProducts] = useState<Product[]>(seedProducts);
-  const [supplies, setSupplies] = useState<SupplyItem[]>(seedSupplies);
-  const [supplyCategories, setSupplyCategories] =
-    useState<SupplyCategory[]>(seedSupplyCategories);
-  const [supplyMovements, setSupplyMovements] =
-    useState<SupplyMovement[]>(seedSupplyMovements);
-  const [salaryPayments, setSalaryPayments] =
-    useState<SalaryPayment[]>(seedSalaryPayments);
+  const [guests, , guestsError, setGuests] = useFetchedList(fetchGuests);
+  const [consumptions, , , setConsumptions] = useFetchedList(fetchConsumptions);
+  const [transactions, , transactionsError, setTransactions] = useFetchedList(fetchTransactions);
+  const [products, , productsError, setProducts] = useFetchedList(fetchProducts);
+  const [supplies, , suppliesError, setSupplies] = useFetchedList(fetchSupplies);
+  const [supplyMovements, , , setSupplyMovements] = useFetchedList(fetchSupplyMovements);
+  const [salaryPayments, , , setSalaryPayments] = useFetchedList(fetchSalaryPayments);
+
+  // Categorias de insumo: guarda também o registro completo (id + nome) —
+  // exposto ao resto do app só como string[] (nome), mas o id é necessário
+  // aqui dentro pra poder renomear a categoria certa no backend.
+  const [supplyCategoryRecords, setSupplyCategoryRecords] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchSupplyCategories()
+      .then((data) => {
+        if (!cancelled) setSupplyCategoryRecords(data);
+      })
+      .catch((err) => console.error("Não consegui buscar categorias de estoque:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const supplyCategories = useMemo(() => supplyCategoryRecords.map((c) => c.name), [supplyCategoryRecords]);
 
   return useMemo(
     () => ({
@@ -647,18 +446,25 @@ function usePmsState() {
         return created;
       },
       guests,
+      guestsError,
       reservations,
       reservationsLoading,
       reservationsError,
       consumptions,
       transactions,
+      transactionsError,
       products,
+      productsError,
       supplies,
+      suppliesError,
       supplyCategories,
       supplyMovements,
       salaryPayments,
-      addGuest: (g: Omit<Guest, "id" | "stays">) =>
-        setGuests((prev) => [{ ...g, id: uid(), stays: 0 }, ...prev]),
+      addGuest: async (g: Omit<Guest, "id" | "stays">) => {
+        const created = await apiCreateGuest(g);
+        setGuests((prev) => [created, ...prev]);
+        return created;
+      },
       addReservation: async (r: Omit<Reservation, "id">) => {
         const created = await apiCreateReservation(r);
         setReservations((prev) => [...prev, created]);
@@ -692,80 +498,74 @@ function usePmsState() {
         }
       },
       // Lança o consumo no extrato do hóspede e, se o item vendido tem
-      // vínculo com um insumo do estoque, já dá baixa automática na mesma
-      // hora - sem isso, o sistema venderia frigobar/produtos pra sempre sem
-      // nunca acusar falta de estoque real.
-      addConsumption: (item: Omit<ConsumptionItem, "id">) => {
-        setConsumptions((prev) => [...prev, { ...item, id: uid() }]);
-        if (item.supplyId && item.supplyQty) {
-          const supplyId = item.supplyId;
-          const supplyQty = item.supplyQty;
-          setSupplyMovements((prev) => [
-            {
-              id: uid(),
-              supplyId,
-              type: "saida",
-              quantity: supplyQty,
-              date: day(0),
-              note: `Venda no extrato — ${item.name}`,
-            },
-            ...prev,
-          ]);
+      // vínculo com um insumo do estoque, o próprio backend já dá baixa
+      // automática e registra a movimentação — ver ConsumptionItemViewSet.
+      addConsumption: async (item: Omit<ConsumptionItem, "id">) => {
+        const created = await apiCreateConsumption(item);
+        setConsumptions((prev) => [...prev, created]);
+        if (created.supplyId && created.supplyQty) {
+          const supplyId = created.supplyId;
+          const supplyQty = created.supplyQty;
           setSupplies((prev) =>
             prev.map((s) => (s.id === supplyId ? { ...s, quantity: Math.max(0, s.quantity - supplyQty) } : s)),
           );
         }
+        return created;
       },
-      // Remove o item do extrato e, se ele tinha baixado estoque na hora da
-      // venda, devolve a quantidade certinho - senão excluir um lançamento
-      // errado deixaria o estoque faltando sem motivo real.
-      removeConsumption: (id: string) => {
-        setConsumptions((prev) => {
-          const item = prev.find((c) => c.id === id);
-          if (item?.supplyId && item.supplyQty) {
-            const supplyId = item.supplyId;
-            const supplyQty = item.supplyQty;
-            setSupplyMovements((sm) => [
-              {
-                id: uid(),
-                supplyId,
-                type: "entrada",
-                quantity: supplyQty,
-                date: day(0),
-                note: `Estorno — item removido do extrato (${item.name})`,
-              },
-              ...sm,
-            ]);
-            setSupplies((sp) =>
-              sp.map((s) => (s.id === supplyId ? { ...s, quantity: s.quantity + supplyQty } : s)),
-            );
-          }
-          return prev.filter((c) => c.id !== id);
-        });
+      // Remove o item do extrato — o backend estorna a quantidade ao
+      // estoque sozinho, senão excluir um lançamento errado deixaria o
+      // estoque faltando sem motivo real.
+      removeConsumption: async (id: string) => {
+        const item = consumptions.find((c) => c.id === id);
+        await deleteConsumptionApi(id);
+        setConsumptions((prev) => prev.filter((c) => c.id !== id));
+        if (item?.supplyId && item.supplyQty) {
+          const supplyId = item.supplyId;
+          const supplyQty = item.supplyQty;
+          setSupplies((prev) =>
+            prev.map((s) => (s.id === supplyId ? { ...s, quantity: s.quantity + supplyQty } : s)),
+          );
+        }
       },
-      addTransaction: (t: Omit<Transaction, "id">) =>
-        setTransactions((prev) => [...prev, { ...t, id: uid() }]),
-      addProduct: (p: Omit<Product, "id">) =>
-        setProducts((prev) => [{ ...p, id: uid() }, ...prev]),
-      removeProduct: (id: string) => setProducts((prev) => prev.filter((p) => p.id !== id)),
-      addSupply: (s: Omit<SupplyItem, "id">) =>
-        setSupplies((prev) => [{ ...s, id: uid() }, ...prev]),
+      addTransaction: async (t: Omit<Transaction, "id">) => {
+        const created = await apiCreateTransaction(t);
+        setTransactions((prev) => [...prev, created]);
+        return created;
+      },
+      addProduct: async (p: Omit<Product, "id">) => {
+        const created = await apiCreateProduct(p);
+        setProducts((prev) => [created, ...prev]);
+        return created;
+      },
+      removeProduct: async (id: string) => {
+        await deleteProductApi(id);
+        setProducts((prev) => prev.filter((p) => p.id !== id));
+      },
+      addSupply: async (s: Omit<SupplyItem, "id">) => {
+        const created = await apiCreateSupply(s);
+        setSupplies((prev) => [created, ...prev]);
+        return created;
+      },
       // Cria um grupo/categoria novo pra organizar o estoque. Ignora se já
       // existir um com o mesmo nome (case-insensitive), pra não duplicar
       // "Bebidas" e "bebidas" como grupos diferentes.
-      addSupplyCategory: (name: string) => {
+      addSupplyCategory: async (name: string) => {
         const trimmed = name.trim();
         if (!trimmed) return;
-        setSupplyCategories((prev) =>
-          prev.some((c) => c.toLowerCase() === trimmed.toLowerCase()) ? prev : [...prev, trimmed],
-        );
+        if (supplyCategoryRecords.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) return;
+        const created = await apiCreateSupplyCategory(trimmed);
+        setSupplyCategoryRecords((prev) => [...prev, created]);
       },
-      // Renomeia um grupo e atualiza todos os insumos que pertenciam a ele,
-      // senão os itens ficariam presos no nome antigo (categoria "fantasma").
-      renameSupplyCategory: (oldName: string, newName: string) => {
+      // Renomeia um grupo no backend — como SupplyItem referencia a
+      // categoria por FK, todos os insumos daquele grupo acompanham o novo
+      // nome automaticamente, sem precisar de UPDATE em massa manual.
+      renameSupplyCategory: async (oldName: string, newName: string) => {
         const trimmed = newName.trim();
         if (!trimmed || trimmed === oldName) return;
-        setSupplyCategories((prev) => prev.map((c) => (c === oldName ? trimmed : c)));
+        const record = supplyCategoryRecords.find((c) => c.name === oldName);
+        if (!record) return;
+        const updated = await renameSupplyCategoryApi(record.id, trimmed);
+        setSupplyCategoryRecords((prev) => prev.map((c) => (c.id === record.id ? updated : c)));
         setSupplies((prev) =>
           prev.map((s) => (s.category === oldName ? { ...s, category: trimmed } : s)),
         );
@@ -773,12 +573,15 @@ function usePmsState() {
       // Edita nome, categoria, unidade e mínimo. A quantidade em estoque em
       // si só muda por movimentação (entrada/saída), pra manter o histórico
       // de movimentações sempre batendo com o saldo atual.
-      updateSupply: (id: string, patch: Partial<Omit<SupplyItem, "id" | "quantity">>) =>
-        setSupplies((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s))),
-      // Remove o insumo e desfaz o vínculo em qualquer produto do catálogo
-      // que apontava pra ele — senão o produto continuaria "vendendo" um
-      // insumo que não existe mais.
-      removeSupply: (id: string) => {
+      updateSupply: async (id: string, patch: Partial<Omit<SupplyItem, "id" | "quantity">>) => {
+        const updated = await updateSupplyApi(id, patch);
+        setSupplies((prev) => prev.map((s) => (s.id === id ? updated : s)));
+      },
+      // Remove o insumo — o backend desfaz sozinho o vínculo em qualquer
+      // produto do catálogo que apontava pra ele, senão o produto
+      // continuaria "vendendo" um insumo que não existe mais.
+      removeSupply: async (id: string) => {
+        await deleteSupplyApi(id);
         setSupplies((prev) => prev.filter((s) => s.id !== id));
         setProducts((prev) =>
           prev.map((p) => {
@@ -788,12 +591,12 @@ function usePmsState() {
           }),
         );
       },
-      // Registra a movimentação e já ajusta a quantidade do insumo (sem deixar
-      // ficar negativa). Uma entrada com custo também lança a despesa sozinha
-      // no Financeiro - é o "alimenta automaticamente o financeiro" pedido.
-      addSupplyMovement: (m: Omit<SupplyMovement, "id">) => {
-        const id = uid();
-        setSupplyMovements((prev) => [{ ...m, id }, ...prev]);
+      // Registra a movimentação — o backend já ajusta a quantidade do
+      // insumo (sem deixar ficar negativa) e, se for entrada com custo,
+      // lança a despesa sozinho no Financeiro.
+      addSupplyMovement: async (m: Omit<SupplyMovement, "id">) => {
+        const created = await apiCreateSupplyMovement(m);
+        setSupplyMovements((prev) => [created, ...prev]);
         setSupplies((prev) =>
           prev.map((s) => {
             if (s.id !== m.supplyId) return s;
@@ -802,52 +605,32 @@ function usePmsState() {
           }),
         );
         if (m.type === "entrada" && m.unitCost) {
-          const supply = supplies.find((s) => s.id === m.supplyId);
-          setTransactions((prev) => [
-            ...prev,
-            {
-              id: uid(),
-              date: m.date,
-              description: `Compra de insumo — ${supply?.name ?? "item"} (${m.quantity} ${supply?.unit ?? ""})`,
-              category: "Insumos/Frigobar",
-              amount: m.quantity * m.unitCost!,
-              type: "saida",
-              status: "Pago",
-            },
-          ]);
+          fetchTransactions()
+            .then(setTransactions)
+            .catch((err) => console.error("Não consegui atualizar o financeiro:", err));
         }
+        return created;
       },
-      // Registra o pagamento do mês (salário + benefícios já somados) e
-      // lança sozinho a despesa correspondente no Financeiro - mesmo
-      // princípio do addSupplyMovement acima. Os dois ficam ligados pelo
-      // transactionId, pra dar pra desfazer os dois juntos depois.
-      addSalaryPayment: (p: Omit<SalaryPayment, "id" | "transactionId">) => {
-        const transactionId = uid();
-        setSalaryPayments((prev) => [{ ...p, id: uid(), transactionId }, ...prev]);
-        setTransactions((prev) => [
-          ...prev,
-          {
-            id: transactionId,
-            date: p.date,
-            description: `Salário — ${p.staffName} (${p.month})`,
-            category: "Salários",
-            amount: p.amount,
-            type: "saida",
-            status: "Pago",
-          },
-        ]);
+      // Registra o pagamento do mês (salário + benefícios já somados) — o
+      // backend lança sozinho a despesa correspondente no Financeiro,
+      // ligada pelo transactionId, pra dar pra desfazer os dois juntos.
+      addSalaryPayment: async (p: Omit<SalaryPayment, "id" | "transactionId">) => {
+        const created = await apiCreateSalaryPayment(p);
+        setSalaryPayments((prev) => [created, ...prev]);
+        fetchTransactions()
+          .then(setTransactions)
+          .catch((err) => console.error("Não consegui atualizar o financeiro:", err));
+        return created;
       },
-      // Desfaz um pagamento lançado errado: remove o registro e o lançamento
-      // correspondente no Financeiro juntos, pra não deixar o dinheiro
-      // "gasto" no fluxo de caixa sem o pagamento existir mais.
-      removeSalaryPayment: (paymentId: string) => {
-        setSalaryPayments((prev) => {
-          const payment = prev.find((p) => p.id === paymentId);
-          if (payment) {
-            setTransactions((tx) => tx.filter((t) => t.id !== payment.transactionId));
-          }
-          return prev.filter((p) => p.id !== paymentId);
-        });
+      // Desfaz um pagamento lançado errado: o backend remove o registro e o
+      // lançamento correspondente no Financeiro juntos, pra não deixar o
+      // dinheiro "gasto" no fluxo de caixa sem o pagamento existir mais.
+      removeSalaryPayment: async (paymentId: string) => {
+        await deleteSalaryPaymentApi(paymentId);
+        setSalaryPayments((prev) => prev.filter((p) => p.id !== paymentId));
+        fetchTransactions()
+          .then(setTransactions)
+          .catch((err) => console.error("Não consegui atualizar o financeiro:", err));
       },
     }),
     [
@@ -855,14 +638,19 @@ function usePmsState() {
       roomsLoading,
       roomsError,
       guests,
+      guestsError,
       reservations,
       reservationsLoading,
       reservationsError,
       consumptions,
       transactions,
+      transactionsError,
       products,
+      productsError,
       supplies,
+      suppliesError,
       supplyCategories,
+      supplyCategoryRecords,
       supplyMovements,
       salaryPayments,
     ],

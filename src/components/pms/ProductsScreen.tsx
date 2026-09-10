@@ -44,7 +44,7 @@ export function ProductsScreen() {
     return products.filter((p) => p.name.toLowerCase().includes(q));
   }, [products, query]);
 
-  const submit = () => {
+  const submit = async () => {
     const price = Number(form.price.replace(".", "").replace(",", "."));
     if (!form.name.trim() || !price) {
       toast.error("Informe o nome e o valor do item.");
@@ -52,15 +52,19 @@ export function ProductsScreen() {
     }
     const hasSupply = form.supplyId !== NO_SUPPLY;
     const qtyPerSale = Number(form.qtyPerSale.replace(",", ".")) || 1;
-    addProduct({
-      name: form.name.trim(),
-      category: form.category,
-      price,
-      ...(hasSupply ? { supplyId: form.supplyId, qtyPerSale } : {}),
-    });
-    toast.success("Item cadastrado no catálogo.");
-    setForm(emptyForm);
-    setOpen(false);
+    try {
+      await addProduct({
+        name: form.name.trim(),
+        category: form.category,
+        price,
+        ...(hasSupply ? { supplyId: form.supplyId, qtyPerSale } : {}),
+      });
+      toast.success("Item cadastrado no catálogo.");
+      setForm(emptyForm);
+      setOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível cadastrar o item.");
+    }
   };
 
   return (
@@ -123,9 +127,13 @@ export function ProductsScreen() {
                     size="sm"
                     variant="ghost"
                     className="text-muted-foreground hover:text-destructive"
-                    onClick={() => {
-                      removeProduct(p.id);
-                      toast.success(`"${p.name}" removido do catálogo.`);
+                    onClick={async () => {
+                      try {
+                        await removeProduct(p.id);
+                        toast.success(`"${p.name}" removido do catálogo.`);
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Não foi possível remover o item.");
+                      }
                     }}
                     aria-label={`Remover ${p.name}`}
                   >

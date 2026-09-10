@@ -166,32 +166,36 @@ export function SupplyScreen() {
   );
   const supplyName = (id: string) => supplies.find((s) => s.id === id)?.name ?? "Item removido";
 
-  const submitNew = () => {
+  const submitNew = async () => {
     const quantity = Number(newForm.quantity.replace(",", "."));
     const minQuantity = Number(newForm.minQuantity.replace(",", "."));
     if (!newForm.name.trim() || !newForm.unit.trim() || Number.isNaN(quantity) || Number.isNaN(minQuantity)) {
       toast.error("Preencha nome, unidade, quantidade e estoque mínimo.");
       return;
     }
-    addSupply({
-      name: newForm.name.trim(),
-      category: newForm.category,
-      unit: newForm.unit.trim(),
-      quantity,
-      minQuantity,
-    });
-    toast.success("Insumo cadastrado no estoque.");
-    setNewForm({
-      name: "",
-      category: supplyCategories[0] ?? "Outros",
-      unit: "un",
-      quantity: "",
-      minQuantity: "",
-    });
-    setNewOpen(false);
+    try {
+      await addSupply({
+        name: newForm.name.trim(),
+        category: newForm.category,
+        unit: newForm.unit.trim(),
+        quantity,
+        minQuantity,
+      });
+      toast.success("Insumo cadastrado no estoque.");
+      setNewForm({
+        name: "",
+        category: supplyCategories[0] ?? "Outros",
+        unit: "un",
+        quantity: "",
+        minQuantity: "",
+      });
+      setNewOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível cadastrar o insumo.");
+    }
   };
 
-  const submitNewCategory = () => {
+  const submitNewCategory = async () => {
     const name = newCategoryName.trim();
     if (!name) {
       toast.error("Informe o nome da nova categoria.");
@@ -201,9 +205,13 @@ export function SupplyScreen() {
       toast.error(`Já existe uma categoria chamada "${name}".`);
       return;
     }
-    addSupplyCategory(name);
-    toast.success(`Categoria "${name}" criada.`);
-    setNewCategoryName("");
+    try {
+      await addSupplyCategory(name);
+      toast.success(`Categoria "${name}" criada.`);
+      setNewCategoryName("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível criar a categoria.");
+    }
   };
 
   const startRename = (c: string) => {
@@ -211,7 +219,7 @@ export function SupplyScreen() {
     setRenameValue(c);
   };
 
-  const submitRename = () => {
+  const submitRename = async () => {
     if (!renamingCategory) return;
     const name = renameValue.trim();
     if (!name) {
@@ -225,10 +233,14 @@ export function SupplyScreen() {
       toast.error(`Já existe uma categoria chamada "${name}".`);
       return;
     }
-    renameSupplyCategory(renamingCategory, name);
-    toast.success("Categoria renomeada.");
-    setRenamingCategory(null);
-    setRenameValue("");
+    try {
+      await renameSupplyCategory(renamingCategory, name);
+      toast.success("Categoria renomeada.");
+      setRenamingCategory(null);
+      setRenameValue("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível renomear a categoria.");
+    }
   };
 
   const openEdit = (s: SupplyItem) => {
@@ -241,28 +253,36 @@ export function SupplyScreen() {
     });
   };
 
-  const submitEdit = () => {
+  const submitEdit = async () => {
     if (!editTarget) return;
     const minQuantity = Number(editForm.minQuantity.replace(",", "."));
     if (!editForm.name.trim() || !editForm.unit.trim() || Number.isNaN(minQuantity)) {
       toast.error("Preencha nome, unidade e estoque mínimo.");
       return;
     }
-    updateSupply(editTarget.id, {
-      name: editForm.name.trim(),
-      category: editForm.category,
-      unit: editForm.unit.trim(),
-      minQuantity,
-    });
-    toast.success("Insumo atualizado.");
-    setEditTarget(null);
+    try {
+      await updateSupply(editTarget.id, {
+        name: editForm.name.trim(),
+        category: editForm.category,
+        unit: editForm.unit.trim(),
+        minQuantity,
+      });
+      toast.success("Insumo atualizado.");
+      setEditTarget(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível atualizar o insumo.");
+    }
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteTarget) return;
-    removeSupply(deleteTarget.id);
-    toast.success(`"${deleteTarget.name}" removido do estoque.`);
-    setDeleteTarget(null);
+    try {
+      await removeSupply(deleteTarget.id);
+      toast.success(`"${deleteTarget.name}" removido do estoque.`);
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível excluir o insumo.");
+    }
   };
 
   const openMove = (s: SupplyItem, type: SupplyMovementType) => {
@@ -273,7 +293,7 @@ export function SupplyScreen() {
     setMoveNote("");
   };
 
-  const submitMove = () => {
+  const submitMove = async () => {
     if (!moveTarget) return;
     const quantity = Number(moveQty.replace(",", "."));
     if (!quantity || quantity <= 0) {
@@ -282,20 +302,24 @@ export function SupplyScreen() {
     }
     const unitCost = moveType === "entrada" ? Number(moveCost.replace(",", ".")) || undefined : undefined;
     const note = moveNote.trim();
-    addSupplyMovement({
-      supplyId: moveTarget.id,
-      type: moveType,
-      quantity,
-      date: day(0),
-      ...(unitCost !== undefined ? { unitCost } : {}),
-      ...(note ? { note } : {}),
-    });
-    toast.success(
-      moveType === "entrada"
-        ? `Entrada registrada: +${quantity} ${moveTarget.unit} de ${moveTarget.name}.`
-        : `Baixa registrada: -${quantity} ${moveTarget.unit} de ${moveTarget.name}.`,
-    );
-    setMoveTarget(null);
+    try {
+      await addSupplyMovement({
+        supplyId: moveTarget.id,
+        type: moveType,
+        quantity,
+        date: day(0),
+        ...(unitCost !== undefined ? { unitCost } : {}),
+        ...(note ? { note } : {}),
+      });
+      toast.success(
+        moveType === "entrada"
+          ? `Entrada registrada: +${quantity} ${moveTarget.unit} de ${moveTarget.name}.`
+          : `Baixa registrada: -${quantity} ${moveTarget.unit} de ${moveTarget.name}.`,
+      );
+      setMoveTarget(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível registrar a movimentação.");
+    }
   };
 
   return (
