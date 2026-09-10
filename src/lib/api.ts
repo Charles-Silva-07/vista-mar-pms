@@ -187,10 +187,34 @@ export async function createRoom(room: Omit<Room, "id">): Promise<Room> {
     body: JSON.stringify(room),
   });
   if (!res.ok) {
-    throw new Error(`Falha ao criar quarto (${res.status})`);
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.number?.[0] ?? `Falha ao criar quarto (${res.status})`);
   }
   const data: ApiRoom = await res.json();
   return normalizeRoom(data);
+}
+
+export async function updateRoom(id: string, room: Omit<Room, "id">): Promise<Room> {
+  const res = await authFetchOrThrow(`/rooms/${id}/`, {
+    method: "PATCH",
+    body: JSON.stringify(room),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.number?.[0] ?? `Falha ao atualizar quarto (${res.status})`);
+  }
+  const data: ApiRoom = await res.json();
+  return normalizeRoom(data);
+}
+
+export async function deleteRoom(id: string): Promise<void> {
+  const res = await authFetchOrThrow(`/rooms/${id}/`, { method: "DELETE" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(
+      (Array.isArray(body) ? body[0] : body?.detail) ?? `Falha ao excluir quarto (${res.status})`,
+    );
+  }
 }
 
 // --- Reservations -------------------------------------------------------

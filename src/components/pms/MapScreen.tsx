@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
+import { RoomManagerDialog } from "@/components/pms/RoomManagerDialog";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +60,7 @@ export function MapScreen({
   const [selected, setSelected] = useState<Reservation | null>(null);
   const [paidInput, setPaidInput] = useState("");
   const [view, setView] = useState({ year: today.getFullYear(), month: today.getMonth() });
+  const [roomManagerOpen, setRoomManagerOpen] = useState(false);
 
   useEffect(() => {
     setPaidInput(selected ? String(selected.amountPaid).replace(".", ",") : "");
@@ -102,6 +104,9 @@ export function MapScreen({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setRoomManagerOpen(true)}>
+            <Settings2 className="size-4" /> Gerenciar quartos
+          </Button>
           <Button variant="outline" size="icon" onClick={() => changeMonth(-1)} aria-label="Mês anterior">
             <ChevronLeft className="size-4" />
           </Button>
@@ -331,6 +336,8 @@ export function MapScreen({
           )}
         </DialogContent>
       </Dialog>
+
+      <RoomManagerDialog open={roomManagerOpen} onOpenChange={setRoomManagerOpen} />
     </div>
   );
 }

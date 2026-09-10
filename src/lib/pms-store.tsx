@@ -13,6 +13,7 @@ import {
   createTransaction as apiCreateTransaction,
   deleteConsumptionApi,
   deleteProductApi,
+  deleteRoom as apiDeleteRoom,
   deleteSalaryPaymentApi,
   deleteSupplyApi,
   fetchConsumptions,
@@ -27,6 +28,7 @@ import {
   fetchTransactions,
   patchReservation,
   renameSupplyCategoryApi,
+  updateRoom as apiUpdateRoom,
   updateSupplyApi,
 } from "./api";
 
@@ -272,6 +274,15 @@ function usePmsState() {
         const created = await apiCreateRoom(room);
         setRooms((prev) => [...prev, created]);
         return created;
+      },
+      updateRoom: async (id: string, room: Omit<Room, "id">) => {
+        const updated = await apiUpdateRoom(id, room);
+        setRooms((prev) => prev.map((r) => (r.id === id ? updated : r)));
+        return updated;
+      },
+      removeRoom: async (id: string) => {
+        await apiDeleteRoom(id);
+        setRooms((prev) => prev.filter((r) => r.id !== id));
       },
       guests,
       guestsError,
