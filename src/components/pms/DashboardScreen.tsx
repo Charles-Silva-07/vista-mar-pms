@@ -115,13 +115,13 @@ export function DashboardScreen({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <MetricCard
-          label="ADR (diária média)"
+          label="Diária média"
           value={brl(adr)}
           hint="Média das diárias ocupadas hoje"
           icon={Wallet}
         />
         <MetricCard
-          label="RevPAR"
+          label="Receita por quarto"
           value={brl(revpar)}
           hint="Receita por apartamento disponível hoje"
           icon={Wallet}
