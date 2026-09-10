@@ -53,16 +53,20 @@ export function GuestsScreen() {
 
   const set = (k: keyof typeof emptyForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  const submit = () => {
+  const submit = async () => {
     const required: (keyof typeof emptyForm)[] = ["name", "document", "phone", "email"];
     if (required.some((k) => !form[k].trim())) {
       toast.error("Preencha todos os campos obrigatórios da FNRH.");
       return;
     }
-    addGuest(form);
-    toast.success("Hóspede cadastrado com sucesso.");
-    setForm(emptyForm);
-    setOpen(false);
+    try {
+      await addGuest(form);
+      toast.success("Hóspede cadastrado com sucesso.");
+      setForm(emptyForm);
+      setOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível cadastrar o hóspede.");
+    }
   };
 
   return (

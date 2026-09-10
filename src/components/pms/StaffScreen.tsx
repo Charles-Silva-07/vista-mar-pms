@@ -301,21 +301,29 @@ export function StaffScreen({
     }
   };
 
-  const markPaid = (a: StaffUser) => {
+  const markPaid = async (a: StaffUser) => {
     const amount = a.salary + (a.transportBenefit ? a.transportBenefitAmount : 0) + (a.mealBenefit ? a.mealBenefitAmount : 0);
-    addSalaryPayment({
-      staffId: a.id,
-      staffName: a.name,
-      month: currentMonth(),
-      amount,
-      date: day(0),
-    });
-    toast.success(`Salário de ${a.name} (${brl(amount)}) lançado no Financeiro.`);
+    try {
+      await addSalaryPayment({
+        staffId: a.id,
+        staffName: a.name,
+        month: currentMonth(),
+        amount,
+        date: day(0),
+      });
+      toast.success(`Salário de ${a.name} (${brl(amount)}) lançado no Financeiro.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível lançar o pagamento.");
+    }
   };
 
-  const undoPayment = (a: StaffUser, paymentId: string) => {
-    removeSalaryPayment(paymentId);
-    toast.success(`Pagamento de ${a.name} desfeito — removido do Financeiro também.`);
+  const undoPayment = async (a: StaffUser, paymentId: string) => {
+    try {
+      await removeSalaryPayment(paymentId);
+      toast.success(`Pagamento de ${a.name} desfeito — removido do Financeiro também.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível desfazer o pagamento.");
+    }
   };
 
   return (
