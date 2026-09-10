@@ -10,6 +10,7 @@ import {
   UserCog,
   LogOut,
   UserCheck,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canAccessScreen, type StaffUser } from "@/lib/auth";
@@ -23,7 +24,8 @@ export type ScreenKey =
   | "produtos"
   | "estoque"
   | "colaboradores"
-  | "financeiro";
+  | "financeiro"
+  | "ajuda";
 
 const items: { key: ScreenKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -34,6 +36,7 @@ const items: { key: ScreenKey; label: string; icon: typeof LayoutDashboard }[] =
   { key: "estoque", label: "Estoque de Insumos", icon: Boxes },
   { key: "colaboradores", label: "Colaboradores", icon: UserCog },
   { key: "financeiro", label: "Financeiro", icon: Wallet },
+  { key: "ajuda", label: "Ajuda", icon: HelpCircle },
 ];
 
 export function AppSidebar({
