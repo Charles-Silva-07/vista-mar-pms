@@ -161,173 +161,6 @@ export const formatDate = (s: string) => s.split("-").reverse().slice(0, 2).join
 // este mês (ver StaffScreen/FinanceScreen).
 export const currentMonth = () => day(0).slice(0, 7);
 
-// Usado só como fallback (estado inicial antes da API responder, ou se o
-// backend estiver fora do ar) — a fonte de verdade agora é o Django
-// (/api/rooms/), ver fetchRooms em lib/api.ts.
-const seedRooms: Room[] = [
-  { id: "101", number: "101", category: "Suíte Luxo", rate: 620 },
-  { id: "102", number: "102", category: "Standard Casal", rate: 380 },
-  { id: "103", number: "103", category: "Standard Duplo", rate: 340 },
-  { id: "104", number: "104", category: "Suíte Família", rate: 780 },
-  { id: "201", number: "201", category: "Suíte Vista Mar", rate: 850 },
-  { id: "202", number: "202", category: "Standard Casal", rate: 380 },
-  { id: "203", number: "203", category: "Chalé Jardim", rate: 520 },
-  { id: "204", number: "204", category: "Standard Solteiro", rate: 260 },
-];
-
-const seedReservations: Reservation[] = [
-  {
-    id: "r1",
-    roomId: "101",
-    guestName: "Marina Duarte",
-    guestId: "g1",
-    start: day(-2),
-    end: day(2),
-    status: "andamento",
-    amountPaid: 4 * 620, // pago integral
-    eta: "14:00",
-    nights: 4,
-    rate: 620,
-    origin: "Direto",
-  },
-  {
-    id: "r2",
-    roomId: "102",
-    guestName: "Carlos Menezes",
-    guestId: "g2",
-    start: day(-1),
-    end: day(1),
-    status: "andamento",
-    amountPaid: 380, // sinal de 50% (total 760)
-    eta: "15:30",
-    nights: 2,
-    rate: 380,
-    origin: "Booking",
-  },
-  {
-    id: "r3",
-    roomId: "201",
-    guestName: "Sofia Bianchi",
-    guestId: "g3",
-    start: day(0),
-    end: day(5),
-    status: "confirmada",
-    amountPaid: 2125, // sinal de 50% (total 4250)
-    eta: "13:00",
-    nights: 5,
-    rate: 850,
-    origin: "Airbnb",
-  },
-  {
-    id: "r4",
-    roomId: "203",
-    guestName: "Rafael Lima",
-    guestId: "g4",
-    start: day(0),
-    end: day(3),
-    status: "confirmada",
-    amountPaid: 0,
-    eta: "18:40",
-    nights: 3,
-    rate: 520,
-    origin: "Direto",
-  },
-  {
-    id: "r5",
-    roomId: "104",
-    guestName: "Helena Prado",
-    guestId: "g5",
-    start: day(-5),
-    end: day(-1),
-    status: "finalizada",
-    amountPaid: 4 * 780,
-    eta: "12:00",
-    nights: 4,
-    rate: 780,
-    origin: "Booking",
-  },
-  {
-    id: "r6",
-    roomId: "202",
-    guestName: "Bruno Tavares",
-    start: day(3),
-    end: day(6),
-    status: "confirmada",
-    amountPaid: 3 * 380,
-    eta: "16:00",
-    nights: 3,
-    rate: 380,
-    origin: "Airbnb",
-  },
-  {
-    id: "r7",
-    roomId: "204",
-    guestName: "Juliana Reis",
-    start: day(1),
-    end: day(4),
-    status: "cancelada",
-    amountPaid: 0,
-    eta: "20:00",
-    nights: 3,
-    rate: 260,
-    origin: "Direto",
-  },
-  {
-    id: "r8",
-    roomId: "103",
-    guestName: "Família Andrade",
-    start: day(-3),
-    end: day(0),
-    status: "andamento",
-    amountPaid: 3 * 340,
-    eta: "11:00",
-    nights: 3,
-    rate: 340,
-    origin: "Direto",
-  },
-  // Reservas de alta temporada (Romaria de Juazeiro do Norte, setembro) —
-  // demonstram o filtro de mês e os 3 níveis de pagamento de uma vez.
-  {
-    id: "r9",
-    roomId: "101",
-    guestName: "Grupo Romaria - Francisco Alves",
-    start: day(14),
-    end: day(19),
-    status: "confirmada",
-    amountPaid: 1550, // sinal de 50% (total 3100)
-    eta: "10:00",
-    nights: 5,
-    rate: 620,
-    origin: "Direto",
-  },
-  {
-    id: "r10",
-    roomId: "102",
-    guestName: "Grupo Romaria - Maria das Graças",
-    start: day(16),
-    end: day(21),
-    status: "confirmada",
-    amountPaid: 5 * 380,
-    eta: "09:30",
-    nights: 5,
-    rate: 380,
-    origin: "Booking",
-  },
-  {
-    id: "r11",
-    roomId: "203",
-    guestName: "Antônio Ferreira",
-    start: day(20),
-    end: day(23),
-    status: "confirmada",
-    amountPaid: 0,
-    eta: "17:00",
-    nights: 3,
-    rate: 520,
-    origin: "Direto",
-  },
-];
-
 // Busca uma lista no backend ao montar e devolve [dados, loading, error] —
 // mesmo padrão usado por rooms/reservations, agora reaproveitado pelas
 // entidades que antes só existiam em memória (Hóspedes, Produtos, Estoque,
@@ -361,7 +194,7 @@ function useFetchedList<T>(fetcher: () => Promise<T[]>): [T[], boolean, string |
 }
 
 function usePmsState() {
-  const [rooms, setRooms] = useState<Room[]>(seedRooms);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(true);
   const [roomsError, setRoomsError] = useState<string | null>(null);
 
@@ -372,9 +205,7 @@ function usePmsState() {
         if (!cancelled) setRooms(data);
       })
       .catch((err) => {
-        // Mantém seedRooms na tela e só reporta o erro — não trava o app se
-        // o backend estiver fora do ar durante a transição.
-        console.error("Não consegui buscar quartos do backend, usando dados locais:", err);
+        console.error("Não consegui buscar quartos do backend:", err);
         if (!cancelled) setRoomsError(err instanceof Error ? err.message : String(err));
       })
       .finally(() => {
@@ -385,7 +216,7 @@ function usePmsState() {
     };
   }, []);
 
-  const [reservations, setReservations] = useState<Reservation[]>(seedReservations);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [reservationsLoading, setReservationsLoading] = useState(true);
   const [reservationsError, setReservationsError] = useState<string | null>(null);
 
@@ -396,10 +227,7 @@ function usePmsState() {
         if (!cancelled) setReservations(data);
       })
       .catch((err) => {
-        console.error(
-          "Não consegui buscar reservas do backend, usando dados locais:",
-          err,
-        );
+        console.error("Não consegui buscar reservas do backend:", err);
         if (!cancelled) setReservationsError(err instanceof Error ? err.message : String(err));
       })
       .finally(() => {
