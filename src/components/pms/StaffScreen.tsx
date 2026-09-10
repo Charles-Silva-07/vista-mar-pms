@@ -130,6 +130,10 @@ export function StaffScreen({
   const [form, setForm] = useState(emptyForm);
   const [photoLoading, setPhotoLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Trava o botão "Marcar pago" por colaborador enquanto a requisição está em
+  // voo — sem isso, clique duplo/triplo dispara vários lançamentos de salário
+  // pro mesmo mês antes do primeiro voltar e esconder o botão.
+  const [payingId, setPayingId] = useState<string | null>(null);
 
   const handlePhotoSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -302,7 +306,9 @@ export function StaffScreen({
   };
 
   const markPaid = async (a: StaffUser) => {
+    if (payingId) return; // já tem um pagamento em voo — ignora clique repetido
     const amount = a.salary + (a.transportBenefit ? a.transportBenefitAmount : 0) + (a.mealBenefit ? a.mealBenefitAmount : 0);
+    setPayingId(a.id);
     try {
       await addSalaryPayment({
         staffId: a.id,
@@ -314,6 +320,8 @@ export function StaffScreen({
       toast.success(`Salário de ${a.name} (${brl(amount)}) lançado no Financeiro.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível lançar o pagamento.");
+    } finally {
+      setPayingId(null);
     }
   };
 
@@ -434,8 +442,15 @@ export function StaffScreen({
                       <div className="space-y-1.5">
                         <Badge className="bg-warning/20 text-warning">Pendente</Badge>
                         {a.active && (
-                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => markPaid(a)}>
-                            <Wallet className="size-3.5" /> Marcar pago
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={payingId === a.id}
+                            onClick={() => markPaid(a)}
+                          >
+                            <Wallet className="size-3.5" />
+                            {payingId === a.id ? "Lançando..." : "Marcar pago"}
                           </Button>
                         )}
                       </div>
